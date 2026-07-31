@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docentes · Consulta de Horarios PINTER</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>📅 Consulta de Horarios PINTER</h1>
+    <div class="usuario-info">
+      <span id="nombreUsuario"></span>
+      <span class="badge-rol" id="badgeRol"></span>
+      <button class="secundario" onclick="cerrarSesion()">Salir</button>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button onclick="location.href='/consulta.html'">Consultar horario</button>
+    <button class="activo" onclick="location.href='/docentes.html'">Docentes</button>
+    <button onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button id="tabAdmin" class="oculto" onclick="location.href='/admin.html'">Panel administrador</button>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2>Buscar docente (por cédula o nombre)</h2>
+      <div class="filtros-grid">
+        <div>
+          <label for="qDocente">Cédula o nombre</label>
+          <input type="text" id="qDocente" placeholder="Ej: 51577607 o Martha Bello">
+        </div>
+        <button class="primario" onclick="buscarDocentes()">Buscar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Resultados</h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Cédula</th><th>Nombre</th><th>Correo</th><th>Facultad</th><th>Sede</th><th></th></tr></thead>
+          <tbody id="tbodyDocentes"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card oculto" id="cardHorarioDocente">
+      <h2>Horario de <span id="nombreDocenteSeleccionado"></span></h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Día</th><th>Hora</th><th>Sede</th><th>Salón</th><th>Materia</th><th>Grupo</th></tr></thead>
+          <tbody id="tbodyHorarioDocente"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    exigirSesion();
+    document.getElementById("nombreUsuario").textContent = getNombreUsuario();
+    document.getElementById("badgeRol").textContent = getRol() === "admin" ? "Administrador" : "Consulta";
+    if (getRol() === "admin") document.getElementById("tabAdmin").classList.remove("oculto");
+
+    async function buscarDocentes() {
+      const q = document.getElementById("qDocente").value.trim();
+      const tbody = document.getElementById("tbodyDocentes");
+      tbody.innerHTML = "";
+      try {
+        const data = await apiFetch(`/docentes?q=${encodeURIComponent(q)}`);
+        data.forEach((d) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${d.cedula}</td><td>${d.nombre_completo}</td><td>${d.correo_institucional || ""}</td><td>${d.facultad || ""}</td><td>${d.sede || ""}</td>
+            <td><button class="secundario" onclick="verHorarioDocente(${d.cedula}, '${d.nombre_completo.replace(/'/g, "")}')">Ver horario</button></td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+
+    async function verHorarioDocente(cedula, nombre) {
+      try {
+        const data = await apiFetch(`/docentes/${cedula}/horario`);
+        document.getElementById("cardHorarioDocente").classList.remove("oculto");
+        document.getElementById("nombreDocenteSeleccionado").textContent = nombre;
+        const tbody = document.getElementById("tbodyHorarioDocente");
+        tbody.innerHTML = "";
+        data.forEach((h) => {
+          const tr = document.createElement("tr");
+          const hora = h.hora_inicio ? `${h.hora_inicio} - ${h.hora_fin}` : "";
+          tr.innerHTML = `<td>${h.dia || ""}</td><td>${hora}</td><td>${h.sede || ""}</td><td>${h.nombre_salon || ""}</td><td>${h.asignatura || ""}</td><td>${h.grupo || ""}</td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

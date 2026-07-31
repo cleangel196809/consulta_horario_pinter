@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consulta de Horarios PINTER · Ingreso</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-box">
+      <h1>Consulta de Horarios</h1>
+      <p class="subt">Institución PINTER</p>
+      <div id="msgError" class="mensaje-error"></div>
+      <form id="formLogin">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" required autofocus>
+        <br><br>
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" required>
+        <br><br>
+        <button type="submit" class="primario">Ingresar</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    document.getElementById("formLogin").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const msg = document.getElementById("msgError");
+      msg.style.display = "none";
+
+      try {
+        const body = new URLSearchParams();
+        body.append("username", username);
+        body.append("password", password);
+
+        const resp = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.detail || "Usuario o contraseña incorrectos");
+        }
+        const data = await resp.json();
+        localStorage.setItem("ph_token", data.access_token);
+        localStorage.setItem("ph_rol", data.rol);
+        localStorage.setItem("ph_nombre", data.nombre_completo || data.username);
+        localStorage.setItem("ph_username", data.username);
+        window.location.href = "/consulta.html";
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>

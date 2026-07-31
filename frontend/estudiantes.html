@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estudiantes · Consulta de Horarios PINTER</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>📅 Consulta de Horarios PINTER</h1>
+    <div class="usuario-info">
+      <span id="nombreUsuario"></span>
+      <span class="badge-rol" id="badgeRol"></span>
+      <button class="secundario" onclick="cerrarSesion()">Salir</button>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button onclick="location.href='/consulta.html'">Consultar horario</button>
+    <button onclick="location.href='/docentes.html'">Docentes</button>
+    <button class="activo" onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button id="tabAdmin" class="oculto" onclick="location.href='/admin.html'">Panel administrador</button>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2>Buscar estudiante (por cédula, nombre o apellido)</h2>
+      <div class="filtros-grid">
+        <div>
+          <label for="qEstudiante">Cédula, nombre o apellido</label>
+          <input type="text" id="qEstudiante" placeholder="Ej: 1000001690 o Muñoz">
+        </div>
+        <button class="primario" onclick="buscarEstudiantes()">Buscar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Resultados</h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Cédula</th><th>Nombres</th><th>Apellidos</th><th>Correo</th><th>Ciclo ingreso</th><th></th></tr></thead>
+          <tbody id="tbodyEstudiantes"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card oculto" id="cardHorarioEstudiante">
+      <h2>Horario de <span id="nombreEstudianteSeleccionado"></span></h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Día</th><th>Hora</th><th>Sede</th><th>Salón</th><th>Materia</th><th>Grupo</th><th>Docente</th></tr></thead>
+          <tbody id="tbodyHorarioEstudiante"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    exigirSesion();
+    document.getElementById("nombreUsuario").textContent = getNombreUsuario();
+    document.getElementById("badgeRol").textContent = getRol() === "admin" ? "Administrador" : "Consulta";
+    if (getRol() === "admin") document.getElementById("tabAdmin").classList.remove("oculto");
+
+    async function buscarEstudiantes() {
+      const q = document.getElementById("qEstudiante").value.trim();
+      const tbody = document.getElementById("tbodyEstudiantes");
+      tbody.innerHTML = "";
+      try {
+        const data = await apiFetch(`/estudiantes?q=${encodeURIComponent(q)}`);
+        data.forEach((e) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${e.cedula}</td><td>${e.nombres || ""}</td><td>${e.apellidos || ""}</td><td>${e.email || ""}</td><td>${e.ciclo_ingreso || ""}</td>
+            <td><button class="secundario" onclick="verHorarioEstudiante('${e.cedula}', '${(e.nombres || "").replace(/'/g, "")} ${(e.apellidos || "").replace(/'/g, "")}')">Ver horario</button></td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+
+    async function verHorarioEstudiante(cedula, nombre) {
+      try {
+        const data = await apiFetch(`/estudiantes/${cedula}/horario`);
+        document.getElementById("cardHorarioEstudiante").classList.remove("oculto");
+        document.getElementById("nombreEstudianteSeleccionado").textContent = nombre;
+        const tbody = document.getElementById("tbodyHorarioEstudiante");
+        tbody.innerHTML = "";
+        if (data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#999;">Este estudiante no tiene grupos con horario asignado todavía</td></tr>`;
+        }
+        data.forEach((h) => {
+          const tr = document.createElement("tr");
+          const hora = h.hora_inicio ? `${h.hora_inicio} - ${h.hora_fin}` : "";
+          tr.innerHTML = `<td>${h.dia || ""}</td><td>${hora}</td><td>${h.sede || ""}</td><td>${h.nombre_salon || ""}</td><td>${h.asignatura || ""}</td><td>${h.grupo || ""}</td><td>${h.nombre_docente || ""}</td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

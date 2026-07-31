@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel administrador · Consulta de Horarios PINTER</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>📅 Consulta de Horarios PINTER</h1>
+    <div class="usuario-info">
+      <span id="nombreUsuario"></span>
+      <span class="badge-rol" id="badgeRol"></span>
+      <button class="secundario" onclick="cerrarSesion()">Salir</button>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button onclick="location.href='/consulta.html'">Consultar horario</button>
+    <button onclick="location.href='/docentes.html'">Docentes</button>
+    <button onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button class="activo">Panel administrador</button>
+  </nav>
+
+  <main id="contenidoAdmin">
+    <div class="grid-2">
+      <div class="card">
+        <h2>Cargar PLANEACIÓN (horarios y docentes)</h2>
+        <div id="msgPlaneacion" class="mensaje-ok"></div>
+        <form id="formPlaneacion">
+          <label for="periodoPlaneacion">Período / ciclo</label>
+          <input type="text" id="periodoPlaneacion" placeholder="Ej: 2026-3T" required>
+          <br><br>
+          <label for="archivoPlaneacion">Archivo Excel (.xlsx)</label>
+          <input type="file" id="archivoPlaneacion" accept=".xlsx,.xlsm" required>
+          <br><br>
+          <button type="submit" class="primario">Cargar planeación</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Cargar INSCRITOS por ciclo</h2>
+        <div id="msgInscritos" class="mensaje-ok"></div>
+        <form id="formInscritos">
+          <label for="periodoInscritos">Período / ciclo</label>
+          <input type="text" id="periodoInscritos" placeholder="Ej: 2026-3T" required>
+          <br><br>
+          <label for="archivoInscritos">Archivo Excel (.xlsx)</label>
+          <input type="file" id="archivoInscritos" accept=".xlsx,.xlsm" required>
+          <br><br>
+          <button type="submit" class="primario">Cargar inscritos</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Historial de cargas</h2>
+      <button class="secundario" onclick="cargarHistorial()">Actualizar</button>
+      <br><br>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Archivo</th><th>Período</th><th>Filas OK</th><th>Filas error</th><th>Estado</th></tr></thead>
+          <tbody id="tbodyHistorial"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Usuarios de la aplicación</h2>
+      <div class="filtros-grid">
+        <div><label>Usuario</label><input id="nuevoUsername"></div>
+        <div><label>Contraseña</label><input id="nuevoPassword" type="password"></div>
+        <div><label>Nombre completo</label><input id="nuevoNombre"></div>
+        <div><label>Rol</label>
+          <select id="nuevoRol">
+            <option value="consulta">Consulta (solo lectura)</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <button class="primario" onclick="crearUsuario()">Crear usuario</button>
+      </div>
+      <br>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Activo</th><th></th></tr></thead>
+          <tbody id="tbodyUsuarios"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
