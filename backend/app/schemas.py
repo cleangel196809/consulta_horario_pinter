@@ -23,6 +23,8 @@ class UsuarioCreate(BaseModel):
     nombre_completo: Optional[str] = None
     rol: str = "consulta"
     cedula_relacionada: Optional[str] = None
+    facultad_alcance: Optional[str] = None
+    sede_alcance: Optional[str] = None
 
 
 class UsuarioOut(BaseModel):
@@ -30,6 +32,8 @@ class UsuarioOut(BaseModel):
     username: str
     nombre_completo: Optional[str]
     rol: str
+    facultad_alcance: Optional[str] = None
+    sede_alcance: Optional[str] = None
     activo: bool
 
     class Config:
@@ -81,6 +85,10 @@ class HorarioOut(BaseModel):
     docente_cedula: Optional[int] = None
     nombre_docente: Optional[str] = None
     correo_docente: Optional[str] = None
+    codigo_moodle: Optional[str] = None
+    codigo_teams: Optional[str] = None
+    enlace_teams: Optional[str] = None
+    origen_hoja: Optional[str] = None
 
     class Config:
         from_attributes = True

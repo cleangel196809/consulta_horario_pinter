@@ -9,7 +9,7 @@ from .database import Base, engine, SessionLocal
 from . import models
 from .config import settings
 from .security import hash_password
-from .routers import auth, horarios, docentes, estudiantes, admin_upload, usuarios
+from .routers import auth, horarios, docentes, estudiantes, admin_upload, usuarios, exportar, reportes
 
 
 def crear_admin_inicial():
@@ -26,6 +26,22 @@ def crear_admin_inicial():
             db.add(admin)
             db.commit()
             print(f"[init] Usuario administrador '{settings.admin_username}' creado.")
+
+        # Usuario de solo-consulta de demostración, para probar el rol sin
+        # privilegios de administrador apenas se levanta la aplicación.
+        existe_prueba = db.query(models.Usuario).filter(
+            models.Usuario.username == settings.test_username
+        ).first()
+        if not existe_prueba:
+            prueba = models.Usuario(
+                username=settings.test_username,
+                password_hash=hash_password(settings.test_password),
+                nombre_completo="Usuario de prueba (consulta)",
+                rol="consulta",
+            )
+            db.add(prueba)
+            db.commit()
+            print(f"[init] Usuario de prueba '{settings.test_username}' (rol consulta) creado.")
     finally:
         db.close()
 
@@ -59,6 +75,8 @@ app.include_router(docentes.router)
 app.include_router(estudiantes.router)
 app.include_router(admin_upload.router)
 app.include_router(usuarios.router)
+app.include_router(exportar.router)
+app.include_router(reportes.router)
 
 
 @app.get("/api/salud", tags=["salud"])

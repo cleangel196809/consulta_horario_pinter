@@ -108,6 +108,8 @@ class Usuario(Base):
     nombre_completo = Column(String(200))
     rol = Column(String(20), nullable=False, default="consulta")
     cedula_relacionada = Column(String(30))
+    facultad_alcance = Column(String(150))
+    sede_alcance = Column(String(100))
     activo = Column(Boolean, default=True)
     creado_en = Column(DateTime, server_default=func.now())
 

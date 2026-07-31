@@ -34,3 +34,15 @@ def require_admin(current_user: models.Usuario = Depends(get_current_user)) -> m
             detail="Esta acción solo puede realizarla un administrador.",
         )
     return current_user
+
+
+def aplicar_alcance_coordinador(query, current_user: models.Usuario, columna_facultad, columna_sede):
+    """Si el usuario tiene rol 'coordinador', restringe automáticamente la
+    consulta a su facultad y/o sede asignada, para que solo vea lo que le
+    corresponde a su alcance."""
+    if current_user.rol == "coordinador":
+        if current_user.facultad_alcance:
+            query = query.filter(columna_facultad.ilike(f"%{current_user.facultad_alcance}%"))
+        if current_user.sede_alcance:
+            query = query.filter(columna_sede.ilike(f"%{current_user.sede_alcance}%"))
+    return query
