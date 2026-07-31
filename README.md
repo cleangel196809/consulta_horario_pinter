@@ -94,16 +94,17 @@ Disponible para cualquier usuario autenticado (filtrado por alcance si es
    - Documentación interactiva de la API: http://localhost:8000/docs
    - Adminer (administrar la base de datos): http://localhost:8080 (sistema: PostgreSQL, servidor: `db`)
 
-Al iniciar por primera vez, la aplicación crea automáticamente:
-- el usuario administrador definido en `.env` (`ADMIN_USERNAME` /
-  `ADMIN_PASSWORD`, por defecto `admin` / `admin123`)
-- un usuario de **prueba** de solo consulta (`TEST_USERNAME` /
-  `TEST_PASSWORD`, por defecto `consulta_prueba` / `prueba123`), útil para
-  verificar rápidamente que el rol de solo lectura funciona sin usar la
-  cuenta de administrador.
+Al iniciar por primera vez, la aplicación crea automáticamente tres usuarios
+de prueba:
 
-**Cambia ambas contraseñas apenas ingreses**, desde el panel de usuarios (el
-usuario de prueba puede desactivarse ahí mismo si no lo necesitas).
+| Usuario | Contraseña | Rol | Notas |
+|---|---|---|---|
+| `admin` | `admin123` | `admin` | Definidos en `.env` (`ADMIN_USERNAME`/`ADMIN_PASSWORD`) |
+| `consulta_prueba` | `prueba123` | `consulta` | Solo lectura, sin restricción de facultad/sede |
+| `coord_prueba` | `coord123` | `coordinador` | Solo lectura, limitado a la facultad `SALUD` (configurable con `COORD_FACULTAD_ALCANCE`) |
+
+**Cambia las tres contraseñas apenas ingreses**, desde el panel de usuarios
+(los usuarios de prueba pueden desactivarse ahí mismo si no los necesitas).
 
 ## Cargar los archivos de cada ciclo (solo administrador)
 
