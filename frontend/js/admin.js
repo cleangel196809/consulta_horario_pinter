@@ -1,6 +1,7 @@
 exigirSesion();
 document.getElementById("nombreUsuario").textContent = getNombreUsuario();
-document.getElementById("badgeRol").textContent = getRol() === "admin" ? "Administrador" : "Consulta";
+document.getElementById("badgeRol").textContent =
+  getRol() === "admin" ? "Administrador" : (getRol() === "coordinador" ? "Coordinador" : "Consulta");
 
 if (getRol() !== "admin") {
   document.getElementById("contenidoAdmin").innerHTML =
@@ -22,6 +23,23 @@ function inicializarAdmin() {
 
   cargarHistorial();
   cargarUsuarios();
+}
+
+function iniciarNuevoCiclo() {
+  const periodo = document.getElementById("periodoNuevoCiclo").value.trim();
+  if (!periodo) {
+    alert("Escribe el período del nuevo ciclo (ej. 2026-3T)");
+    return;
+  }
+  document.getElementById("periodoPlaneacion").value = periodo;
+  document.getElementById("periodoInscritos").value = periodo;
+  document.getElementById("formPlaneacion").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function toggleCamposCoordinador() {
+  const esCoordinador = document.getElementById("nuevoRol").value === "coordinador";
+  document.getElementById("campoFacultadAlcance").classList.toggle("oculto", !esCoordinador);
+  document.getElementById("campoSedeAlcance").classList.toggle("oculto", !esCoordinador);
 }
 
 async function subirArchivo(tipo, idPeriodo, idArchivo, idMsg, endpoint) {
@@ -64,11 +82,25 @@ async function cargarHistorial() {
     data.forEach((c) => {
       const tr = document.createElement("tr");
       const fecha = c.creado_en ? new Date(c.creado_en).toLocaleString() : "";
-      tr.innerHTML = `<td>${fecha}</td><td>${c.tipo}</td><td>${c.nombre_archivo || ""}</td><td>${c.periodo || ""}</td><td>${c.filas_procesadas}</td><td>${c.filas_error}</td><td>${c.estado}</td>`;
+      tr.innerHTML = `<td>${fecha}</td><td>${c.tipo}</td><td>${c.nombre_archivo || ""}</td><td>${c.periodo || ""}</td><td>${c.filas_procesadas}</td><td>${c.filas_error}</td><td>${c.estado}</td>
+        <td><button class="secundario" onclick="notificarCarga(${c.id})">Notificar</button></td>`;
       tbody.appendChild(tr);
     });
   } catch (err) {
     console.error(err);
+  }
+}
+
+async function notificarCarga(cargaId) {
+  try {
+    const data = await apiFetch(`/admin/cargas/${cargaId}/notificar`, { method: "POST" });
+    if (!data.habilitado) {
+      alert(data.mensaje);
+    } else {
+      alert(`Correos enviados: ${data.enviados}. Fallidos: ${data.fallidos}.`);
+    }
+  } catch (err) {
+    alert("Error: " + err.message);
   }
 }
 
@@ -78,8 +110,9 @@ async function cargarUsuarios() {
     const tbody = document.getElementById("tbodyUsuarios");
     tbody.innerHTML = "";
     data.forEach((u) => {
+      const alcance = [u.facultad_alcance, u.sede_alcance].filter(Boolean).join(" / ") || "—";
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${u.username}</td><td>${u.nombre_completo || ""}</td><td>${u.rol}</td><td>${u.activo ? "Sí" : "No"}</td>
+      tr.innerHTML = `<td>${u.username}</td><td>${u.nombre_completo || ""}</td><td>${u.rol}</td><td>${alcance}</td><td>${u.activo ? "Sí" : "No"}</td>
         <td><button class="secundario" onclick="cambiarEstadoUsuario(${u.id}, ${!u.activo})">${u.activo ? "Desactivar" : "Activar"}</button></td>`;
       tbody.appendChild(tr);
     });
@@ -93,9 +126,15 @@ async function crearUsuario() {
   const password = document.getElementById("nuevoPassword").value;
   const nombre_completo = document.getElementById("nuevoNombre").value.trim();
   const rol = document.getElementById("nuevoRol").value;
+  const facultad_alcance = document.getElementById("nuevaFacultadAlcance").value.trim();
+  const sede_alcance = document.getElementById("nuevaSedeAlcance").value.trim();
 
   if (!username || !password) {
     alert("Usuario y contraseña son obligatorios");
+    return;
+  }
+  if (rol === "coordinador" && !facultad_alcance && !sede_alcance) {
+    alert("Un coordinador necesita al menos una facultad o sede de alcance");
     return;
   }
 
@@ -103,11 +142,13 @@ async function crearUsuario() {
     await apiFetch("/usuarios", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, nombre_completo, rol }),
+      body: JSON.stringify({ username, password, nombre_completo, rol, facultad_alcance, sede_alcance }),
     });
     document.getElementById("nuevoUsername").value = "";
     document.getElementById("nuevoPassword").value = "";
     document.getElementById("nuevoNombre").value = "";
+    document.getElementById("nuevaFacultadAlcance").value = "";
+    document.getElementById("nuevaSedeAlcance").value = "";
     cargarUsuarios();
   } catch (err) {
     alert("Error: " + err.message);

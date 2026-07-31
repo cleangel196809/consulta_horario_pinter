@@ -47,3 +47,33 @@ async function apiFetch(path, options = {}) {
   if (resp.status === 204) return null;
   return resp.json();
 }
+
+// Descarga un archivo protegido (PDF/ICS) inyectando el token de sesión,
+// ya que un <a href> normal no puede enviar el header Authorization.
+async function descargarArchivo(path, nombreArchivo) {
+  const token = getToken();
+  const resp = await fetch(API_BASE + path, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (resp.status === 401) {
+    cerrarSesion();
+    throw new Error("Sesión expirada");
+  }
+  if (!resp.ok) {
+    let detalle = "No se pudo generar el archivo";
+    try {
+      const data = await resp.json();
+      detalle = data.detail || detalle;
+    } catch (e) {}
+    throw new Error(detalle);
+  }
+  const blob = await resp.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
