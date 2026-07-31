@@ -102,14 +102,18 @@ CREATE INDEX IF NOT EXISTS idx_inscripciones_estudiante ON inscripciones(estudia
 CREATE INDEX IF NOT EXISTS idx_inscripciones_grupo ON inscripciones(grupo);
 CREATE INDEX IF NOT EXISTS idx_inscripciones_periodo ON inscripciones(periodo);
 
--- Usuarios de la aplicación (login). rol = 'admin' o 'consulta'
+-- Usuarios de la aplicación (login).
+-- rol = 'admin' (control total) | 'consulta' (solo lectura) |
+--       'coordinador' (solo lectura, limitado a su facultad y/o sede)
 CREATE TABLE IF NOT EXISTS usuarios (
     id                     BIGSERIAL PRIMARY KEY,
     username               VARCHAR(80) UNIQUE NOT NULL,
     password_hash          VARCHAR(255) NOT NULL,
     nombre_completo        VARCHAR(200),
-    rol                    VARCHAR(20) NOT NULL DEFAULT 'consulta' CHECK (rol IN ('admin','consulta')),
+    rol                    VARCHAR(20) NOT NULL DEFAULT 'consulta' CHECK (rol IN ('admin','consulta','coordinador')),
     cedula_relacionada      VARCHAR(30),  -- opcional: vincula el usuario a un docente/estudiante
+    facultad_alcance        VARCHAR(150), -- solo aplica si rol = 'coordinador'
+    sede_alcance            VARCHAR(100), -- solo aplica si rol = 'coordinador'
     activo                 BOOLEAN DEFAULT TRUE,
     creado_en              TIMESTAMP DEFAULT NOW()
 );
