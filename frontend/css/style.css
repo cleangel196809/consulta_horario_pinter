@@ -30,6 +30,27 @@ body {
   margin: 0;
 }
 
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-topbar {
+  height: 38px;
+  width: auto;
+  background: #fff;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.logo-login {
+  display: block;
+  height: 64px;
+  width: auto;
+  margin: 0 auto 12px;
+}
+
 .topbar .usuario-info {
   display: flex;
   align-items: center;
@@ -230,4 +251,76 @@ footer.nota {
 
 @media (max-width: 720px) {
   .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ===== Ajustes para móvil ===== */
+@media (max-width: 640px) {
+  .topbar {
+    padding: 10px 14px;
+  }
+
+  .topbar h1 {
+    font-size: 1rem;
+  }
+
+  .topbar .usuario-info {
+    font-size: 0.8rem;
+    gap: 8px;
+  }
+
+  nav.tabs {
+    padding: 8px 8px 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  nav.tabs::-webkit-scrollbar { height: 4px; }
+
+  nav.tabs button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    flex: 0 0 auto;
+  }
+
+  main {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 14px;
+    border-radius: 8px;
+  }
+
+  .filtros-grid {
+    grid-template-columns: 1fr;
+  }
+
+  button.primario, button.secundario {
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .card h2 {
+    font-size: 0.95rem;
+  }
+
+  table {
+    font-size: 0.78rem;
+  }
+
+  th, td {
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+
+  .tabla-scroll {
+    max-height: 400px;
+  }
+
+  .login-box {
+    padding: 22px;
+    margin: 0 12px;
+  }
 }
