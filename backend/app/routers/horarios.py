@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, aplicar_alcance_coordinador
 
 router = APIRouter(prefix="/api/horarios", tags=["horarios"])
 
@@ -22,6 +22,7 @@ def consultar_horarios(
     periodo: Optional[str] = None,
     facultad: Optional[str] = None,
     programa: Optional[str] = None,
+    jornada: Optional[str] = None,
     limit: int = Query(500, le=2000),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
@@ -49,6 +50,10 @@ def consultar_horarios(
         q = q.filter(models.Horario.facultad.ilike(f"%{facultad}%"))
     if programa:
         q = q.filter(models.Horario.programa.ilike(f"%{programa}%"))
+    if jornada:
+        q = q.filter(models.Horario.jornada.ilike(f"%{jornada}%"))
+
+    q = aplicar_alcance_coordinador(q, current_user, models.Horario.facultad, models.Horario.sede)
 
     q = q.order_by(models.Horario.dia, models.Horario.hora_inicio)
     return q.limit(limit).all()
@@ -65,6 +70,7 @@ def opciones_de_filtro(
     base = db.query(models.Horario)
     if periodo:
         base = base.filter(models.Horario.periodo == periodo)
+    base = aplicar_alcance_coordinador(base, current_user, models.Horario.facultad, models.Horario.sede)
 
     def distinct_values(column):
         rows = base.with_entities(column).filter(column.isnot(None)).distinct().all()
@@ -76,6 +82,9 @@ def opciones_de_filtro(
         "salones": distinct_values(models.Horario.nombre_salon),
         "materias": distinct_values(models.Horario.asignatura),
         "grupos": distinct_values(models.Horario.grupo),
+        "facultades": distinct_values(models.Horario.facultad),
+        "programas": distinct_values(models.Horario.programa),
+        "jornadas": distinct_values(models.Horario.jornada),
         "periodos": sorted({r[0] for r in db.query(models.Horario.periodo).distinct().all() if r[0]}),
     }
 
