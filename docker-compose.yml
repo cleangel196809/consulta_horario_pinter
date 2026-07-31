@@ -35,10 +35,24 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      TEST_USERNAME: ${TEST_USERNAME}
+      TEST_PASSWORD: ${TEST_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_USE_TLS: ${SMTP_USE_TLS}
+      WATCH_DIR: /data/carga_automatica
+      PERIODO: ${PERIODO}
     ports:
       - "8000:8000"
     volumes:
       - ./frontend:/app/frontend
+      # Carpeta opcional para la carga automatica programada (ver
+      # backend/scripts/auto_import.py). Crea ./carga_automatica en tu
+      # maquina y deja ahi los .xlsx de cada ciclo si quieres usarla.
+      - ./carga_automatica:/data/carga_automatica
 
   adminer:
     image: adminer:latest

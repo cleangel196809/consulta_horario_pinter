@@ -8,3 +8,4 @@ venv/
 node_modules/
 postgres_data/
 *.log
+backend/test_*.py
