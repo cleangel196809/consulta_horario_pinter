@@ -42,6 +42,27 @@ def crear_admin_inicial():
             db.add(prueba)
             db.commit()
             print(f"[init] Usuario de prueba '{settings.test_username}' (rol consulta) creado.")
+
+        # Usuario de prueba con rol "coordinador", limitado a una facultad,
+        # para poder probar el alcance filtrado sin tener que crearlo a mano
+        # desde el panel admin.
+        existe_coord = db.query(models.Usuario).filter(
+            models.Usuario.username == settings.coord_username
+        ).first()
+        if not existe_coord:
+            coord = models.Usuario(
+                username=settings.coord_username,
+                password_hash=hash_password(settings.coord_password),
+                nombre_completo="Usuario de prueba (coordinador)",
+                rol="coordinador",
+                facultad_alcance=settings.coord_facultad_alcance,
+            )
+            db.add(coord)
+            db.commit()
+            print(
+                f"[init] Usuario de prueba '{settings.coord_username}' "
+                f"(rol coordinador, facultad '{settings.coord_facultad_alcance}') creado."
+            )
     finally:
         db.close()
 

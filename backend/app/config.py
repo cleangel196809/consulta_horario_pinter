@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     test_username: str = "consulta_prueba"
     test_password: str = "prueba123"
 
+    # Usuario de prueba adicional con rol "coordinador", limitado a una
+    # facultad, para poder probar el alcance filtrado sin crearlo a mano.
+    coord_username: str = "coord_prueba"
+    coord_password: str = "coord123"
+    coord_facultad_alcance: str = "SALUD"
+
     # Notificaciones por correo (opcional). Si smtp_host queda vacío, el envío
     # de notificaciones queda deshabilitado y la API lo indica claramente en
     # vez de fallar.
