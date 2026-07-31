@@ -1,0 +1,233 @@
+:root {
+  --azul-pinter: #0b3d91;
+  --azul-claro: #e8effc;
+  --gris-borde: #d7dce5;
+  --texto: #1f2937;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #f4f6fb;
+  color: var(--texto);
+  margin: 0;
+}
+
+.topbar {
+  background: var(--azul-pinter);
+  color: #fff;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.topbar h1 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.topbar .usuario-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.badge-rol {
+  background: rgba(255,255,255,0.18);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+nav.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 24px 0;
+  background: #fff;
+  border-bottom: 1px solid var(--gris-borde);
+}
+
+nav.tabs button {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #555;
+  border-bottom: 3px solid transparent;
+}
+
+nav.tabs button.activo {
+  color: var(--azul-pinter);
+  border-bottom-color: var(--azul-pinter);
+  font-weight: 600;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--gris-borde);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+  color: var(--azul-pinter);
+}
+
+.filtros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+label {
+  font-size: 0.8rem;
+  color: #555;
+  display: block;
+  margin-bottom: 4px;
+}
+
+input, select, button.primario {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+button.primario {
+  background: var(--azul-pinter);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 22px;
+}
+
+button.primario:hover { opacity: 0.92; }
+
+button.secundario {
+  background: #fff;
+  border: 1px solid var(--azul-pinter);
+  color: var(--azul-pinter);
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.87rem;
+}
+
+th, td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gris-borde);
+}
+
+th {
+  background: var(--azul-claro);
+  color: var(--azul-pinter);
+  position: sticky;
+  top: 0;
+}
+
+tr:hover { background: #fafbff; }
+
+.tabla-scroll { max-height: 520px; overflow: auto; border: 1px solid var(--gris-borde); border-radius: 8px; }
+
+.login-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.login-box {
+  background: #fff;
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+  width: 100%;
+  max-width: 360px;
+}
+
+.login-box h1 {
+  color: var(--azul-pinter);
+  font-size: 1.3rem;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.login-box p.subt {
+  text-align: center;
+  color: #777;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+
+.mensaje-error {
+  background: #fdecea;
+  color: #b3261e;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  display: none;
+}
+
+.mensaje-ok {
+  background: #e6f4ea;
+  color: #1e7e34;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  display: none;
+}
+
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  background: var(--azul-claro);
+  color: var(--azul-pinter);
+}
+
+.oculto { display: none !important; }
+
+footer.nota {
+  text-align: center;
+  color: #999;
+  font-size: 0.75rem;
+  padding: 20px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 720px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
