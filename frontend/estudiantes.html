@@ -8,7 +8,10 @@
 </head>
 <body>
   <div class="topbar">
-    <h1>📅 Consulta de Horarios PINTER</h1>
+    <div class="marca">
+      <img src="/img/logo-pinter.png" alt="Politécnico Internacional" class="logo-topbar">
+      <h1>Consulta de Horarios</h1>
+    </div>
     <div class="usuario-info">
       <span id="nombreUsuario"></span>
       <span class="badge-rol" id="badgeRol"></span>
@@ -20,6 +23,7 @@
     <button onclick="location.href='/consulta.html'">Consultar horario</button>
     <button onclick="location.href='/docentes.html'">Docentes</button>
     <button class="activo" onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button onclick="location.href='/dashboard.html'">Reportes</button>
     <button id="tabAdmin" class="oculto" onclick="location.href='/admin.html'">Panel administrador</button>
   </nav>
 
@@ -47,6 +51,10 @@
 
     <div class="card oculto" id="cardHorarioEstudiante">
       <h2>Horario de <span id="nombreEstudianteSeleccionado"></span></h2>
+      <div style="margin-bottom:10px;">
+        <button class="secundario" onclick="descargarPdfEstudiante()">⬇ Descargar PDF</button>
+        <button class="secundario" onclick="descargarIcsEstudiante()">📅 Añadir a calendario (.ics)</button>
+      </div>
       <div class="tabla-scroll">
         <table>
           <thead><tr><th>Día</th><th>Hora</th><th>Sede</th><th>Salón</th><th>Materia</th><th>Grupo</th><th>Docente</th></tr></thead>
@@ -60,8 +68,11 @@
   <script>
     exigirSesion();
     document.getElementById("nombreUsuario").textContent = getNombreUsuario();
-    document.getElementById("badgeRol").textContent = getRol() === "admin" ? "Administrador" : "Consulta";
+    document.getElementById("badgeRol").textContent =
+      getRol() === "admin" ? "Administrador" : (getRol() === "coordinador" ? "Coordinador" : "Consulta");
     if (getRol() === "admin") document.getElementById("tabAdmin").classList.remove("oculto");
+
+    let cedulaSeleccionada = null;
 
     async function buscarEstudiantes() {
       const q = document.getElementById("qEstudiante").value.trim();
@@ -83,6 +94,7 @@
     async function verHorarioEstudiante(cedula, nombre) {
       try {
         const data = await apiFetch(`/estudiantes/${cedula}/horario`);
+        cedulaSeleccionada = cedula;
         document.getElementById("cardHorarioEstudiante").classList.remove("oculto");
         document.getElementById("nombreEstudianteSeleccionado").textContent = nombre;
         const tbody = document.getElementById("tbodyHorarioEstudiante");
@@ -96,6 +108,24 @@
           tr.innerHTML = `<td>${h.dia || ""}</td><td>${hora}</td><td>${h.sede || ""}</td><td>${h.nombre_salon || ""}</td><td>${h.asignatura || ""}</td><td>${h.grupo || ""}</td><td>${h.nombre_docente || ""}</td>`;
           tbody.appendChild(tr);
         });
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+
+    async function descargarPdfEstudiante() {
+      if (!cedulaSeleccionada) return;
+      try {
+        await descargarArchivo(`/estudiantes/${cedulaSeleccionada}/horario.pdf`, `horario_${cedulaSeleccionada}.pdf`);
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+
+    async function descargarIcsEstudiante() {
+      if (!cedulaSeleccionada) return;
+      try {
+        await descargarArchivo(`/estudiantes/${cedulaSeleccionada}/horario.ics`, `horario_${cedulaSeleccionada}.ics`);
       } catch (err) {
         alert("Error: " + err.message);
       }

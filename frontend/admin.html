@@ -8,7 +8,10 @@
 </head>
 <body>
   <div class="topbar">
-    <h1>📅 Consulta de Horarios PINTER</h1>
+    <div class="marca">
+      <img src="/img/logo-pinter.png" alt="Politécnico Internacional" class="logo-topbar">
+      <h1>Consulta de Horarios</h1>
+    </div>
     <div class="usuario-info">
       <span id="nombreUsuario"></span>
       <span class="badge-rol" id="badgeRol"></span>
@@ -20,10 +23,24 @@
     <button onclick="location.href='/consulta.html'">Consultar horario</button>
     <button onclick="location.href='/docentes.html'">Docentes</button>
     <button onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button onclick="location.href='/dashboard.html'">Reportes</button>
     <button class="activo">Panel administrador</button>
   </nav>
 
   <main id="contenidoAdmin">
+    <div class="card" style="border-color:#0b3d91;">
+      <h2>🆕 Iniciar carga de un nuevo ciclo</h2>
+      <p style="font-size:0.85rem;color:#555;">Indica una sola vez el período del nuevo ciclo (ej. 2026-3T) y se
+      completará automáticamente en los dos formularios de carga de abajo.</p>
+      <div class="filtros-grid">
+        <div>
+          <label for="periodoNuevoCiclo">Período del nuevo ciclo</label>
+          <input type="text" id="periodoNuevoCiclo" placeholder="Ej: 2026-3T">
+        </div>
+        <button class="primario" onclick="iniciarNuevoCiclo()">Usar este período</button>
+      </div>
+    </div>
+
     <div class="grid-2">
       <div class="card">
         <h2>Cargar PLANEACIÓN (horarios y docentes)</h2>
@@ -57,10 +74,13 @@
     <div class="card">
       <h2>Historial de cargas</h2>
       <button class="secundario" onclick="cargarHistorial()">Actualizar</button>
-      <br><br>
+      <p style="font-size:0.8rem;color:#777;">El botón "Notificar" envía un correo a los docentes/estudiantes
+      afectados por esa carga. Requiere que el administrador configure las variables SMTP_* en el archivo .env;
+      si no están configuradas, el sistema lo indicará en vez de fallar.</p>
+      <br>
       <div class="tabla-scroll">
         <table>
-          <thead><tr><th>Fecha</th><th>Tipo</th><th>Archivo</th><th>Período</th><th>Filas OK</th><th>Filas error</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Archivo</th><th>Período</th><th>Filas OK</th><th>Filas error</th><th>Estado</th><th></th></tr></thead>
           <tbody id="tbodyHistorial"></tbody>
         </table>
       </div>
@@ -73,17 +93,26 @@
         <div><label>Contraseña</label><input id="nuevoPassword" type="password"></div>
         <div><label>Nombre completo</label><input id="nuevoNombre"></div>
         <div><label>Rol</label>
-          <select id="nuevoRol">
+          <select id="nuevoRol" onchange="toggleCamposCoordinador()">
             <option value="consulta">Consulta (solo lectura)</option>
+            <option value="coordinador">Coordinador (solo lectura, limitado a facultad/sede)</option>
             <option value="admin">Administrador</option>
           </select>
+        </div>
+        <div id="campoFacultadAlcance" class="oculto">
+          <label>Facultad de alcance (coordinador)</label>
+          <input id="nuevaFacultadAlcance" placeholder="Ej: SALUD">
+        </div>
+        <div id="campoSedeAlcance" class="oculto">
+          <label>Sede de alcance (coordinador)</label>
+          <input id="nuevaSedeAlcance" placeholder="Ej: NORTE">
         </div>
         <button class="primario" onclick="crearUsuario()">Crear usuario</button>
       </div>
       <br>
       <div class="tabla-scroll">
         <table>
-          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Activo</th><th></th></tr></thead>
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Alcance</th><th>Activo</th><th></th></tr></thead>
           <tbody id="tbodyUsuarios"></tbody>
         </table>
       </div>

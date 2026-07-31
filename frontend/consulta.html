@@ -8,7 +8,10 @@
 </head>
 <body>
   <div class="topbar">
-    <h1>📅 Consulta de Horarios PINTER</h1>
+    <div class="marca">
+      <img src="/img/logo-pinter.png" alt="Politécnico Internacional" class="logo-topbar">
+      <h1>Consulta de Horarios</h1>
+    </div>
     <div class="usuario-info">
       <span id="nombreUsuario"></span>
       <span class="badge-rol" id="badgeRol"></span>
@@ -20,6 +23,7 @@
     <button class="activo" onclick="location.href='/consulta.html'">Consultar horario</button>
     <button onclick="location.href='/docentes.html'">Docentes</button>
     <button onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button onclick="location.href='/dashboard.html'">Reportes</button>
     <button id="tabAdmin" class="oculto" onclick="location.href='/admin.html'">Panel administrador</button>
   </nav>
 
@@ -55,8 +59,29 @@
           <label for="fDocente">Docente (nombre)</label>
           <input type="text" id="fDocente" placeholder="Ej: Martha Bello">
         </div>
-        <button class="primario" onclick="buscar()">Buscar</button>
       </div>
+
+      <p class="link-avanzado" onclick="toggleAvanzado()">
+        <span id="toggleAvanzadoTexto">▸ Búsqueda avanzada (facultad, programa, jornada)</span>
+      </p>
+      <div class="filtros-grid oculto" id="filtrosAvanzados">
+        <div>
+          <label for="fFacultad">Facultad</label>
+          <input type="text" id="fFacultad" list="listaFacultades" placeholder="Ej: SALUD">
+          <datalist id="listaFacultades"></datalist>
+        </div>
+        <div>
+          <label for="fPrograma">Programa</label>
+          <input type="text" id="fPrograma" list="listaProgramas" placeholder="Ej: GASTRONOMIA">
+          <datalist id="listaProgramas"></datalist>
+        </div>
+        <div>
+          <label for="fJornada">Jornada</label>
+          <input type="text" id="fJornada" list="listaJornadas" placeholder="Ej: NOCHE">
+          <datalist id="listaJornadas"></datalist>
+        </div>
+      </div>
+      <button class="primario" onclick="buscar()" style="max-width:220px;">Buscar</button>
     </div>
 
     <div class="card">
@@ -66,7 +91,7 @@
           <thead>
             <tr>
               <th>Día</th><th>Hora</th><th>Sede</th><th>Salón</th>
-              <th>Materia</th><th>Grupo</th><th>Docente</th><th>Programa</th><th>Estado</th>
+              <th>Materia</th><th>Grupo</th><th>Docente</th><th>Programa</th><th>Estado</th><th>Clase virtual</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>

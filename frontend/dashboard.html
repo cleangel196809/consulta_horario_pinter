@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reportes y Dashboard · Consulta de Horarios PINTER</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="marca">
+      <img src="/img/logo-pinter.png" alt="Politécnico Internacional" class="logo-topbar">
+      <h1>Consulta de Horarios</h1>
+    </div>
+    <div class="usuario-info">
+      <span id="nombreUsuario"></span>
+      <span class="badge-rol" id="badgeRol"></span>
+      <button class="secundario" onclick="cerrarSesion()">Salir</button>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button onclick="location.href='/consulta.html'">Consultar horario</button>
+    <button onclick="location.href='/docentes.html'">Docentes</button>
+    <button onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button class="activo" onclick="location.href='/dashboard.html'">Reportes</button>
+    <button id="tabAdmin" class="oculto" onclick="location.href='/admin.html'">Panel administrador</button>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2>Filtro general</h2>
+      <div class="filtros-grid">
+        <div>
+          <label for="fPeriodo">Período</label>
+          <select id="fPeriodo" onchange="cargarTodo()"><option value="">Todos</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Grupos por estado</h2>
+        <canvas id="chartGrupos" height="220"></canvas>
+      </div>
+      <div class="card">
+        <h2>Ocupación de salones por franja horaria</h2>
+        <canvas id="chartOcupacion" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Matriculados por programa (top 15)</h2>
+        <canvas id="chartProgramas" height="240"></canvas>
+      </div>
+      <div class="card">
+        <h2>Matriculados por sede / jornada</h2>
+        <canvas id="chartSedeJornada" height="240"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Carga horaria por docente <span id="umbralSobrecarga" class="pill"></span></h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Docente</th><th>Horas/semana</th><th>Clases/semana</th><th>Estado</th></tr></thead>
+          <tbody id="tbodyCarga"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Choques de horario detectados</h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Tipo</th><th>Día</th><th>Detalle</th><th>Horario 1</th><th>Horario 2</th></tr></thead>
+          <tbody id="tbodyChoques"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Inconsistencias PLANEACIÓN / REFLEJOS / CERRADOS</h2>
+      <div id="resumenInconsistencias"></div>
+    </div>
+
+    <div class="card">
+      <h2>Comparador entre periodos/ciclos</h2>
+      <div class="filtros-grid">
+        <div><label>Período A</label><select id="cmpA"></select></div>
+        <div><label>Período B</label><select id="cmpB"></select></div>
+        <button class="primario" onclick="compararPeriodos()">Comparar</button>
+      </div>
+      <div id="resultadoComparador" style="margin-top:14px;"></div>
+    </div>
+  </main>
+
+  <footer class="nota">Consulta de Horarios PINTER · Reportes y utilidades de análisis</footer>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
