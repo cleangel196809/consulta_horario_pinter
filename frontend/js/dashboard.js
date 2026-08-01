@@ -1,9 +1,11 @@
 exigirSesion();
 document.getElementById("nombreUsuario").textContent = getNombreUsuario();
-document.getElementById("badgeRol").textContent = getRol() === "admin" ? "Administrador" : (getRol() === "coordinador" ? "Coordinador" : "Consulta");
+document.getElementById("badgeRol").textContent = etiquetaRol();
 if (getRol() === "admin") document.getElementById("tabAdmin").classList.remove("oculto");
 
 let charts = {};
+let ultimoDashboardData = null;
+let ultimaCargaHorariaData = null;
 
 function destruirChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
@@ -30,6 +32,7 @@ async function cargarPeriodos() {
 
 async function cargarDashboard(periodo) {
   const data = await apiFetch(`/reportes/dashboard${periodo ? "?periodo=" + encodeURIComponent(periodo) : ""}`);
+  ultimoDashboardData = data;
 
   destruirChart("grupos");
   charts.grupos = new Chart(document.getElementById("chartGrupos"), {
@@ -72,6 +75,7 @@ async function cargarDashboard(periodo) {
 
 async function cargarCargaHoraria(periodo) {
   const data = await apiFetch(`/reportes/carga-horaria-docentes${periodo ? "?periodo=" + encodeURIComponent(periodo) : ""}`);
+  ultimaCargaHorariaData = data;
   document.getElementById("umbralSobrecarga").textContent = `umbral: ${data.umbral_sobrecarga_horas}h/semana`;
   const tbody = document.getElementById("tbodyCarga");
   tbody.innerHTML = "";
@@ -126,6 +130,59 @@ async function compararPeriodos() {
   } catch (err) {
     alert("Error al comparar: " + err.message);
   }
+}
+
+function generarGraficoPersonalizado() {
+  if (!ultimoDashboardData || !ultimaCargaHorariaData) {
+    alert("Los datos del dashboard todavía se están cargando, intenta de nuevo en un momento.");
+    return;
+  }
+
+  const opcion = document.getElementById("selectGraficoBarras").value;
+  let labels = [];
+  let valores = [];
+  let etiquetaSerie = "Total";
+
+  if (opcion === "grupos_origen") {
+    labels = ["Planeación (activos)", "Reflejos", "Cerrados"];
+    valores = [
+      ultimoDashboardData.grupos_por_origen.planeacion,
+      ultimoDashboardData.grupos_por_origen.reflejos,
+      ultimoDashboardData.grupos_por_origen.cerrados,
+    ];
+    etiquetaSerie = "Grupos";
+  } else if (opcion === "matriculados_programa") {
+    labels = ultimoDashboardData.matriculados_por_programa.map((p) => (p.nombre || "").slice(0, 30));
+    valores = ultimoDashboardData.matriculados_por_programa.map((p) => p.total);
+    etiquetaSerie = "Matriculados";
+  } else if (opcion === "matriculados_sede") {
+    labels = ultimoDashboardData.matriculados_por_sede.map((s) => s.nombre || "");
+    valores = ultimoDashboardData.matriculados_por_sede.map((s) => s.total);
+    etiquetaSerie = "Matriculados";
+  } else if (opcion === "matriculados_jornada") {
+    labels = ultimoDashboardData.matriculados_por_jornada.map((j) => j.nombre || "");
+    valores = ultimoDashboardData.matriculados_por_jornada.map((j) => j.total);
+    etiquetaSerie = "Matriculados";
+  } else if (opcion === "ocupacion_salones") {
+    labels = ultimoDashboardData.ocupacion_salones_por_franja.map((f) => f.franja);
+    valores = ultimoDashboardData.ocupacion_salones_por_franja.map((f) => f.total_clases);
+    etiquetaSerie = "Clases";
+  } else if (opcion === "carga_docente") {
+    const top = ultimaCargaHorariaData.docentes.slice(0, 20);
+    labels = top.map((d) => d.nombre_docente || String(d.docente_cedula));
+    valores = top.map((d) => d.horas_semana);
+    etiquetaSerie = "Horas/semana";
+  }
+
+  destruirChart("personalizado");
+  charts.personalizado = new Chart(document.getElementById("chartPersonalizado"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{ label: etiquetaSerie, data: valores, backgroundColor: colorPalette(labels.length) }],
+    },
+    options: { plugins: { legend: { display: false } } },
+  });
 }
 
 async function cargarTodo() {

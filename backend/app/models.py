@@ -111,6 +111,10 @@ class Usuario(Base):
     facultad_alcance = Column(String(150))
     sede_alcance = Column(String(100))
     activo = Column(Boolean, default=True)
+    # Se fuerza a True cuando se crea automáticamente el usuario de un
+    # docente/estudiante (contraseña inicial = cédula), para obligarlo a
+    # cambiar su contraseña en el primer ingreso. Ver services/usuarios_auto.py.
+    debe_cambiar_password = Column(Boolean, default=False)
     creado_en = Column(DateTime, server_default=func.now())
 
 

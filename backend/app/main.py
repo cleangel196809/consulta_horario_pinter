@@ -9,7 +9,7 @@ from .database import Base, engine, SessionLocal
 from . import models
 from .config import settings
 from .security import hash_password
-from .routers import auth, horarios, docentes, estudiantes, admin_upload, usuarios, exportar, reportes
+from .routers import auth, horarios, docentes, estudiantes, admin_upload, admin_crud, usuarios, exportar, reportes
 
 
 def crear_admin_inicial():
@@ -95,6 +95,7 @@ app.include_router(horarios.router)
 app.include_router(docentes.router)
 app.include_router(estudiantes.router)
 app.include_router(admin_upload.router)
+app.include_router(admin_crud.router)
 app.include_router(usuarios.router)
 app.include_router(exportar.router)
 app.include_router(reportes.router)

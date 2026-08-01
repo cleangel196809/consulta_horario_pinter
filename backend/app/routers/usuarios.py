@@ -29,8 +29,12 @@ def crear_usuario(
     existente = db.query(models.Usuario).filter(models.Usuario.username == datos.username).first()
     if existente:
         raise HTTPException(status_code=400, detail="Ese nombre de usuario ya existe.")
-    if datos.rol not in ("admin", "consulta", "coordinador"):
-        raise HTTPException(status_code=400, detail="El rol debe ser 'admin', 'consulta' o 'coordinador'.")
+    roles_validos = ("admin", "consulta", "coordinador", "docente", "consulta_estudiante")
+    if datos.rol not in roles_validos:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El rol debe ser uno de: {', '.join(roles_validos)}.",
+        )
     if datos.rol == "coordinador" and not (datos.facultad_alcance or datos.sede_alcance):
         raise HTTPException(
             status_code=400,

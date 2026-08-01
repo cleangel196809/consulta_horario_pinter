@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from .. import models
+from .usuarios_auto import sincronizar_usuario_docente, sincronizar_usuario_estudiante
 
 SEDES_CONOCIDAS = [
     "SUR", "NORTE", "CENTRO", "CALLE 73", "CALLE 72", "CHAPINERO",
@@ -125,7 +126,12 @@ def _find_header_row(ws, must_contain, max_scan: int = 20):
 
 
 def import_docentes_desde_planeacion(db: Session, wb, carga_id: int) -> tuple[int, int]:
-    """Importa/actualiza la hoja DOCENTES (NIT_CC, NOMBRE_COMPLETO, CORREO, FACULTAD, SEDE)."""
+    """Importa/actualiza la hoja DOCENTES (NIT_CC, NOMBRE_COMPLETO, CORREO, FACULTAD, SEDE).
+
+    Al final de la importación, sincroniza automáticamente el usuario de
+    login de cada docente con correo institucional @pi.edu.co (ver
+    `services/usuarios_auto.py`).
+    """
     if "DOCENTES" not in wb.sheetnames:
         return 0, 0
     ws = wb["DOCENTES"]
@@ -166,36 +172,45 @@ def import_docentes_desde_planeacion(db: Session, wb, carga_id: int) -> tuple[in
             )
             db.execute(stmt)
             procesadas += 1
+
+            # Sincronización de usuario de login del docente. Se aísla en su
+            # propio try/except para que un problema al crear/actualizar el
+            # usuario NUNCA haga fallar la importación del docente en sí.
+            try:
+                sincronizar_usuario_docente(db, cedula, nombre, correo)
+            except Exception:
+                pass
         except Exception:
             errores += 1
     db.commit()
     return procesadas, errores
 
 
-def import_horarios_desde_planeacion(
-    db: Session, wb, periodo: str, carga_id: int, hoja: str = "PLANEACION"
-) -> tuple[int, int]:
-    """Importa la hoja de horarios (PLANEACION, REFLEJOS o CERRADOS)."""
+def _extraer_filas_horario(wb, hoja: str) -> tuple[list[dict], int]:
+    """Parsea una hoja de horarios (PLANEACION, REFLEJOS o CERRADOS) y
+    devuelve una lista de diccionarios con los campos ya normalizados
+    (listos para instanciar `models.Horario`, sin `periodo`/`carga_id`/
+    `origen_hoja`, que se agregan al momento de insertar), junto con el
+    conteo de filas que no se pudieron parsear.
+
+    Esta función NO toca la base de datos: se usa tanto para insertar
+    (`import_horarios_desde_planeacion`) como para previsualizar duplicados
+    (`detectar_duplicados_planeacion`) sin efectos secundarios.
+    """
     if hoja not in wb.sheetnames:
-        return 0, 0
+        return [], 0
     ws = wb[hoja]
-    # La hoja REFLEJOS usa nombres de columna distintos ("... VIGENTE") para
-    # la asignatura y el grupo que realmente se dicta; se aceptan como alias.
     header_row_num, header_row = _find_header_row(
         ws, [["ASIGNATURA", "ASIGNATURA VIGENTE"], ["GRUPO", "GRUPO ASIGNATURA VIGENTE"]]
     )
     mapping = _header_map(header_row)
 
-    # Aseguramos que los docentes referenciados existan (aunque no vengan en la
-    # hoja DOCENTES) para no romper la llave foránea.
-    docentes_vistos = {}
-
-    procesadas, errores = 0, 0
+    filas = []
+    errores = 0
     for row in ws.iter_rows(min_row=header_row_num + 1, values_only=True):
         if row is None or all(v is None for v in row):
             continue
         try:
-            llave = _to_str(_get(row, mapping, "LLAVE"))
             grupo = _to_str(_get(row, mapping, "GRUPO", "GRUPO ASIGNATURA VIGENTE"))
             if not grupo:
                 continue
@@ -208,22 +223,12 @@ def import_horarios_desde_planeacion(
             nombre_docente = _to_str(_get(row, mapping, "NOMBRE_DOCENTE"))
             correo_docente = _to_str(_get(row, mapping, "CORREO INSTITUCIONAL", "CORREO_INSTITUCIONAL"))
 
-            if docente_cedula is not None and docente_cedula not in docentes_vistos:
-                stmt = pg_insert(models.Docente).values(
-                    cedula=docente_cedula,
-                    nombre_completo=nombre_docente or f"Docente {docente_cedula}",
-                    correo_institucional=correo_docente,
-                ).on_conflict_do_nothing(index_elements=["cedula"])
-                db.execute(stmt)
-                docentes_vistos[docente_cedula] = True
-
             nombre_salon = _to_str(_get(row, mapping, "NOMBRE_SALON"))
             modalidad = _to_str(_get(row, mapping, "MODALIDAD"))
             sede = _extraer_sede(nombre_salon, modalidad)
 
-            horario = models.Horario(
-                llave=llave,
-                periodo=periodo,
+            fila = dict(
+                llave=_to_str(_get(row, mapping, "LLAVE")),
                 codigo_asignatura=_to_str(_get(row, mapping, "CODIGO", "CODIGO ASIGNATURA VIGENTE")),
                 facultad=_to_str(_get(row, mapping, "FACULTAD")),
                 programa=_to_str(_get(row, mapping, "PROGRAMA", "PROGRAMA ASIGNATURA VIGENTE")),
@@ -248,8 +253,128 @@ def import_horarios_desde_planeacion(
                 nombre_docente=nombre_docente,
                 correo_docente=correo_docente,
                 observaciones=_to_str(_get(row, mapping, "OBSERVACIONES")),
+            )
+            filas.append(fila)
+        except Exception:
+            errores += 1
+    return filas, errores
+
+
+def _clave_duplicado(fila: dict) -> tuple:
+    """Define cuándo dos filas de horario son 'la misma clase': deben
+    coincidir EXACTAMENTE en docente + día + hora inicio/fin + salón + grupo
+    + asignatura. Se incluye `dia` a propósito para NO confundir con un
+    falso positivo una misma clase que legítimamente se repite en días
+    distintos de la semana (p. ej. lunes y miércoles) — esas filas tienen
+    `dia` diferente y por lo tanto una clave distinta, así que no se
+    consideran duplicadas ni se eliminan.
+    """
+    return (
+        fila.get("docente_cedula"),
+        fila.get("dia"),
+        fila.get("hora_inicio"),
+        fila.get("hora_fin"),
+        fila.get("nombre_salon"),
+        fila.get("grupo"),
+        fila.get("asignatura"),
+    )
+
+
+def detectar_duplicados_planeacion(wb, periodo: str) -> dict:
+    """Analiza (SIN insertar nada en la base de datos) el archivo de
+    PLANEACIÓN y devuelve un resumen de filas duplicadas, entendiendo por
+    duplicado dos filas que coinciden exactamente en docente_cedula + dia +
+    hora_inicio + hora_fin + nombre_salon + grupo + asignatura, dentro del
+    periodo que se va a cargar. Se analizan en conjunto las hojas
+    PLANEACION, REFLEJOS y CERRADOS (las tres terminan insertándose en la
+    misma tabla `horarios`).
+    """
+    grupos_por_clave: dict[tuple, list[dict]] = {}
+    for hoja in ("PLANEACION", "REFLEJOS", "CERRADOS"):
+        filas, _errores = _extraer_filas_horario(wb, hoja)
+        for fila in filas:
+            clave = _clave_duplicado(fila)
+            grupos_por_clave.setdefault(clave, []).append({**fila, "origen_hoja": hoja})
+
+    grupos_duplicados = []
+    total_duplicados = 0
+    for clave, filas in grupos_por_clave.items():
+        if len(filas) <= 1:
+            continue
+        total_duplicados += len(filas) - 1  # filas "de más" que sobrarían tras deduplicar
+        primera = filas[0]
+        grupos_duplicados.append({
+            "docente_cedula": clave[0],
+            "nombre_docente": primera.get("nombre_docente"),
+            "dia": clave[1],
+            "hora_inicio": str(clave[2]) if clave[2] else None,
+            "hora_fin": str(clave[3]) if clave[3] else None,
+            "nombre_salon": clave[4],
+            "grupo": clave[5],
+            "asignatura": clave[6],
+            "veces_repetido": len(filas),
+            "hojas": [f["origen_hoja"] for f in filas],
+        })
+
+    grupos_duplicados.sort(key=lambda g: g["veces_repetido"], reverse=True)
+
+    return {
+        "periodo": periodo,
+        "duplicados_encontrados": total_duplicados,
+        "grupos_duplicados": grupos_duplicados,
+    }
+
+
+def import_horarios_desde_planeacion(
+    db: Session,
+    wb,
+    periodo: str,
+    carga_id: int,
+    hoja: str = "PLANEACION",
+    eliminar_duplicados: bool = False,
+    claves_vistas: Optional[set] = None,
+) -> tuple[int, int]:
+    """Importa la hoja de horarios (PLANEACION, REFLEJOS o CERRADOS).
+
+    Si `eliminar_duplicados=True`, se conserva solo la primera fila de cada
+    combinación duplicada (según `_clave_duplicado`) y se descartan las
+    demás antes de insertar. `claves_vistas` permite compartir el conjunto
+    de claves ya vistas entre varias llamadas (una por hoja), para que la
+    deduplicación funcione también entre PLANEACION/REFLEJOS/CERRADOS y no
+    solo dentro de una misma hoja.
+    """
+    filas, errores = _extraer_filas_horario(wb, hoja)
+    if claves_vistas is None:
+        claves_vistas = set()
+
+    # Aseguramos que los docentes referenciados existan (aunque no vengan en la
+    # hoja DOCENTES) para no romper la llave foránea.
+    docentes_vistos: dict[int, bool] = {}
+
+    procesadas = 0
+    for fila in filas:
+        try:
+            if eliminar_duplicados:
+                clave = _clave_duplicado(fila)
+                if clave in claves_vistas:
+                    continue
+                claves_vistas.add(clave)
+
+            docente_cedula = fila.get("docente_cedula")
+            if docente_cedula is not None and docente_cedula not in docentes_vistos:
+                stmt = pg_insert(models.Docente).values(
+                    cedula=docente_cedula,
+                    nombre_completo=fila.get("nombre_docente") or f"Docente {docente_cedula}",
+                    correo_institucional=fila.get("correo_docente"),
+                ).on_conflict_do_nothing(index_elements=["cedula"])
+                db.execute(stmt)
+                docentes_vistos[docente_cedula] = True
+
+            horario = models.Horario(
+                periodo=periodo,
                 origen_hoja=hoja,
                 carga_id=carga_id,
+                **fila,
             )
             db.add(horario)
             procesadas += 1
@@ -259,7 +384,9 @@ def import_horarios_desde_planeacion(
     return procesadas, errores
 
 
-def importar_planeacion(db: Session, file_bytes: bytes, periodo: str, carga_id: int) -> dict:
+def importar_planeacion(
+    db: Session, file_bytes: bytes, periodo: str, carga_id: int, eliminar_duplicados: bool = False
+) -> dict:
     wb = openpyxl.load_workbook(BytesIO(file_bytes), data_only=True)
     total_ok, total_err = 0, 0
 
@@ -267,8 +394,15 @@ def importar_planeacion(db: Session, file_bytes: bytes, periodo: str, carga_id: 
     total_ok += ok
     total_err += err
 
+    # `claves_vistas` se comparte entre las tres hojas para que la
+    # deduplicación (cuando se solicita) funcione de forma consistente con
+    # `detectar_duplicados_planeacion`, que también las analiza en conjunto.
+    claves_vistas: set = set()
     for hoja in ("PLANEACION", "REFLEJOS", "CERRADOS"):
-        ok, err = import_horarios_desde_planeacion(db, wb, periodo, carga_id, hoja=hoja)
+        ok, err = import_horarios_desde_planeacion(
+            db, wb, periodo, carga_id, hoja=hoja,
+            eliminar_duplicados=eliminar_duplicados, claves_vistas=claves_vistas,
+        )
         total_ok += ok
         total_err += err
 
@@ -277,7 +411,9 @@ def importar_planeacion(db: Session, file_bytes: bytes, periodo: str, carga_id: 
 
 def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: int) -> dict:
     """Importa el archivo INSCRITOS_POR_CICLO (hoja única, con filas de título
-    antes del encabezado real)."""
+    antes del encabezado real). Al finalizar, sincroniza automáticamente el
+    usuario de login de cada estudiante con correo @pi.edu.co (ver
+    `services/usuarios_auto.py`)."""
     wb = openpyxl.load_workbook(BytesIO(file_bytes), data_only=True)
     ws = wb[wb.sheetnames[0]]
     header_row_num, header_row = _find_header_row(ws, ["IDENTIFICACION", "GRUPO", "ASIGNATURA"])
@@ -285,6 +421,9 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
 
     procesadas, errores = 0, 0
     estudiantes_vistos = set()
+    # Info mínima de cada estudiante visto en esta carga, para poder
+    # sincronizar su usuario de login al final sin tener que releer el Excel.
+    estudiantes_info: dict[str, dict] = {}
 
     for row in ws.iter_rows(min_row=header_row_num + 1, values_only=True):
         if row is None or all(v is None for v in row):
@@ -295,13 +434,18 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
                 continue
 
             if cedula not in estudiantes_vistos:
+                nombres = _to_str(_get(row, mapping, "NOMBRES"))
+                apellidos = _to_str(_get(row, mapping, "APELLIDOS"))
+                email = _to_str(_get(row, mapping, "EMAIL"))
+                correo_aula_virtual = _to_str(_get(row, mapping, "CORREO AULA VIRTUAL"))
+
                 stmt = pg_insert(models.Estudiante).values(
                     cedula=cedula,
                     tipo=_to_str(_get(row, mapping, "TIPO")),
-                    nombres=_to_str(_get(row, mapping, "NOMBRES")),
-                    apellidos=_to_str(_get(row, mapping, "APELLIDOS")),
-                    correo_aula_virtual=_to_str(_get(row, mapping, "CORREO AULA VIRTUAL")),
-                    email=_to_str(_get(row, mapping, "EMAIL")),
+                    nombres=nombres,
+                    apellidos=apellidos,
+                    correo_aula_virtual=correo_aula_virtual,
+                    email=email,
                     celular=_to_str(_get(row, mapping, "CELULAR")),
                     telefono=_to_str(_get(row, mapping, "TELEFONO")),
                     ciclo_ingreso=_to_str(_get(row, mapping, "CICLO_INGRESO")),
@@ -309,10 +453,10 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
                     index_elements=["cedula"],
                     set_=dict(
                         tipo=_to_str(_get(row, mapping, "TIPO")),
-                        nombres=_to_str(_get(row, mapping, "NOMBRES")),
-                        apellidos=_to_str(_get(row, mapping, "APELLIDOS")),
-                        correo_aula_virtual=_to_str(_get(row, mapping, "CORREO AULA VIRTUAL")),
-                        email=_to_str(_get(row, mapping, "EMAIL")),
+                        nombres=nombres,
+                        apellidos=apellidos,
+                        correo_aula_virtual=correo_aula_virtual,
+                        email=email,
                         celular=_to_str(_get(row, mapping, "CELULAR")),
                         telefono=_to_str(_get(row, mapping, "TELEFONO")),
                         ciclo_ingreso=_to_str(_get(row, mapping, "CICLO_INGRESO")),
@@ -320,6 +464,11 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
                 )
                 db.execute(stmt)
                 estudiantes_vistos.add(cedula)
+                estudiantes_info[cedula] = {
+                    "nombre_completo": " ".join(p for p in (nombres, apellidos) if p) or None,
+                    "email": email,
+                    "correo_aula_virtual": correo_aula_virtual,
+                }
 
             inscripcion_stmt = pg_insert(models.Inscripcion).values(
                 estudiante_cedula=cedula,
@@ -353,6 +502,17 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
             procesadas += 1
         except Exception:
             errores += 1
+
+    # Sincronización de usuarios de login de estudiantes (aislada en su
+    # propio try/except por estudiante para no afectar el resultado de la
+    # importación de inscripciones si algo falla al crear el usuario).
+    for cedula, info in estudiantes_info.items():
+        try:
+            sincronizar_usuario_estudiante(
+                db, cedula, info["nombre_completo"], info["email"], info["correo_aula_virtual"]
+            )
+        except Exception:
+            pass
 
     db.commit()
     return {"filas_procesadas": procesadas, "filas_error": errores}

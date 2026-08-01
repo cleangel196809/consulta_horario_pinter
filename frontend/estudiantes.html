@@ -55,12 +55,7 @@
         <button class="secundario" onclick="descargarPdfEstudiante()">⬇ Descargar PDF</button>
         <button class="secundario" onclick="descargarIcsEstudiante()">📅 Añadir a calendario (.ics)</button>
       </div>
-      <div class="tabla-scroll">
-        <table>
-          <thead><tr><th>Día</th><th>Hora</th><th>Sede</th><th>Salón</th><th>Materia</th><th>Grupo</th><th>Docente</th></tr></thead>
-          <tbody id="tbodyHorarioEstudiante"></tbody>
-        </table>
-      </div>
+      <div class="tabla-scroll" id="contenedorHorarioEstudiante"></div>
     </div>
   </main>
 
@@ -68,8 +63,7 @@
   <script>
     exigirSesion();
     document.getElementById("nombreUsuario").textContent = getNombreUsuario();
-    document.getElementById("badgeRol").textContent =
-      getRol() === "admin" ? "Administrador" : (getRol() === "coordinador" ? "Coordinador" : "Consulta");
+    document.getElementById("badgeRol").textContent = etiquetaRol();
     if (getRol() === "admin") document.getElementById("tabAdmin").classList.remove("oculto");
 
     let cedulaSeleccionada = null;
@@ -97,17 +91,12 @@
         cedulaSeleccionada = cedula;
         document.getElementById("cardHorarioEstudiante").classList.remove("oculto");
         document.getElementById("nombreEstudianteSeleccionado").textContent = nombre;
-        const tbody = document.getElementById("tbodyHorarioEstudiante");
-        tbody.innerHTML = "";
+        const contenedor = document.getElementById("contenedorHorarioEstudiante");
         if (data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#999;">Este estudiante no tiene grupos con horario asignado todavía</td></tr>`;
+          contenedor.innerHTML = `<p style="text-align:center;color:#999;padding:16px;">Este estudiante no tiene grupos con horario asignado todavía</p>`;
+        } else {
+          contenedor.innerHTML = construirGrillaHorarioHtml(cedula, nombre, data);
         }
-        data.forEach((h) => {
-          const tr = document.createElement("tr");
-          const hora = h.hora_inicio ? `${h.hora_inicio} - ${h.hora_fin}` : "";
-          tr.innerHTML = `<td>${h.dia || ""}</td><td>${hora}</td><td>${h.sede || ""}</td><td>${h.nombre_salon || ""}</td><td>${h.asignatura || ""}</td><td>${h.grupo || ""}</td><td>${h.nombre_docente || ""}</td>`;
-          tbody.appendChild(tr);
-        });
       } catch (err) {
         alert("Error: " + err.message);
       }

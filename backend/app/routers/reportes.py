@@ -90,6 +90,17 @@ def dashboard(
 
 
 @router.get("/carga-horaria-docentes")
+# Nota sobre deduplicación de PLANEACIÓN (services/excel_import.py): la
+# eliminación de filas duplicadas al cargar usa como clave
+# docente_cedula + dia + hora_inicio + hora_fin + nombre_salon + grupo +
+# asignatura. Como `dia` forma parte de la clave, una misma clase que
+# legítimamente se repite en días distintos (p. ej. lunes y miércoles)
+# NUNCA se identifica como duplicada ni se elimina por error: cada día
+# genera una clave distinta y por lo tanto una fila distinta en `horarios`,
+# así que el cálculo de horas/semana de abajo (que suma _horas() por cada
+# fila) sigue sumando correctamente todas las franjas reales del docente.
+# La deduplicación solo mejora este cálculo al quitar filas que eran copias
+# exactas (mismo día y misma franja) que antes inflaban el conteo de horas.
 def carga_horaria_docentes(
     periodo: Optional[str] = None,
     db: Session = Depends(get_db),

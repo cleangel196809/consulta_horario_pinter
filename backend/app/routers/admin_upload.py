@@ -1,12 +1,15 @@
 from typing import List, Optional
 
+import openpyxl
+from io import BytesIO
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
 from ..deps import require_admin
-from ..services.excel_import import importar_planeacion, importar_inscritos
+from ..services.excel_import import importar_planeacion, importar_inscritos, detectar_duplicados_planeacion
 from ..services.notificaciones import notificar_carga
 
 router = APIRouter(prefix="/api/admin", tags=["administracion"])
@@ -22,10 +25,54 @@ def _validar_extension(filename: str):
         )
 
 
+@router.post("/cargar-planeacion/previsualizar")
+def previsualizar_planeacion(
+    periodo: str = Form(..., description="Ciclo/periodo, ej: 2026-3T"),
+    archivo: UploadFile = File(...),
+    current_user: models.Usuario = Depends(require_admin),
+):
+    """Analiza el archivo de PLANEACIÓN SIN insertar nada en la base de
+    datos y devuelve un resumen de posibles filas duplicadas (dos filas se
+    consideran la misma clase si coinciden EXACTAMENTE en docente + día +
+    hora_inicio + hora_fin + salón + grupo + asignatura, dentro del periodo
+    a cargar).
+
+    Flujo de uso pensado para el frontend:
+      1) El admin sube el archivo -> el frontend llama a este endpoint.
+      2) Si `duplicados_encontrados > 0`, el frontend le muestra la lista de
+         `grupos_duplicados` y pregunta "¿deseas eliminar los duplicados?".
+      3) El admin confirma (o no) y el frontend vuelve a llamar al endpoint
+         real `POST /api/admin/cargar-planeacion`, esta vez con el mismo
+         archivo + periodo y `eliminar_duplicados=true` (o `false` si el
+         admin prefiere cargar todo tal cual).
+
+    Este endpoint nunca modifica la base de datos ni borra nada por su
+    cuenta: solo informa.
+    """
+    _validar_extension(archivo.filename)
+    contenido = archivo.file.read()
+    try:
+        wb = openpyxl.load_workbook(BytesIO(contenido), data_only=True)
+        resultado = detectar_duplicados_planeacion(wb, periodo)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"No se pudo analizar el archivo: {exc}")
+    return resultado
+
+
 @router.post("/cargar-planeacion", response_model=schemas.CargaArchivoOut)
 def cargar_planeacion(
     periodo: str = Form(..., description="Ciclo/periodo, ej: 2026-3T"),
     archivo: UploadFile = File(...),
+    eliminar_duplicados: bool = Form(
+        False,
+        description=(
+            "Si es true, se conserva solo la primera fila de cada grupo de "
+            "filas duplicadas (ver /cargar-planeacion/previsualizar) y se "
+            "descartan las demás antes de insertar. Por defecto es false: "
+            "el admin SIEMPRE debe decidir explícitamente eliminar "
+            "duplicados, nunca se borran automáticamente."
+        ),
+    ),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(require_admin),
 ):
@@ -44,7 +91,7 @@ def cargar_planeacion(
     db.refresh(carga)
 
     try:
-        resultado = importar_planeacion(db, contenido, periodo, carga.id)
+        resultado = importar_planeacion(db, contenido, periodo, carga.id, eliminar_duplicados=eliminar_duplicados)
         carga.filas_procesadas = resultado["filas_procesadas"]
         carga.filas_error = resultado["filas_error"]
         carga.estado = "completado"

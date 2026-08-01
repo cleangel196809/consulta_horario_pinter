@@ -55,12 +55,7 @@
         <button class="secundario" onclick="descargarPdfDocente()">⬇ Descargar PDF</button>
         <button class="secundario" onclick="descargarIcsDocente()">📅 Añadir a calendario (.ics)</button>
       </div>
-      <div class="tabla-scroll">
-        <table>
-          <thead><tr><th>Día</th><th>Hora</th><th>Sede</th><th>Salón</th><th>Materia</th><th>Grupo</th></tr></thead>
-          <tbody id="tbodyHorarioDocente"></tbody>
-        </table>
-      </div>
+      <div class="tabla-scroll" id="contenedorHorarioDocente"></div>
     </div>
   </main>
 
@@ -68,8 +63,7 @@
   <script>
     exigirSesion();
     document.getElementById("nombreUsuario").textContent = getNombreUsuario();
-    document.getElementById("badgeRol").textContent =
-      getRol() === "admin" ? "Administrador" : (getRol() === "coordinador" ? "Coordinador" : "Consulta");
+    document.getElementById("badgeRol").textContent = etiquetaRol();
     if (getRol() === "admin") document.getElementById("tabAdmin").classList.remove("oculto");
 
     let cedulaSeleccionada = null;
@@ -97,14 +91,8 @@
         cedulaSeleccionada = cedula;
         document.getElementById("cardHorarioDocente").classList.remove("oculto");
         document.getElementById("nombreDocenteSeleccionado").textContent = nombre;
-        const tbody = document.getElementById("tbodyHorarioDocente");
-        tbody.innerHTML = "";
-        data.forEach((h) => {
-          const tr = document.createElement("tr");
-          const hora = h.hora_inicio ? `${h.hora_inicio} - ${h.hora_fin}` : "";
-          tr.innerHTML = `<td>${h.dia || ""}</td><td>${hora}</td><td>${h.sede || ""}</td><td>${h.nombre_salon || ""}</td><td>${h.asignatura || ""}</td><td>${h.grupo || ""}</td>`;
-          tbody.appendChild(tr);
-        });
+        document.getElementById("contenedorHorarioDocente").innerHTML =
+          construirGrillaHorarioHtml(cedula, nombre, data);
       } catch (err) {
         alert("Error: " + err.message);
       }

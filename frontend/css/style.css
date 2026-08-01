@@ -249,6 +249,104 @@ footer.nota {
   gap: 20px;
 }
 
+/* ===== Grilla semanal de horario (docentes/estudiantes) ===== */
+table.grilla-horario {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  table-layout: fixed;
+}
+
+table.grilla-horario th,
+table.grilla-horario td {
+  border: 1px solid var(--gris-borde);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.grilla-cabecera-izq {
+  background: #ffd54a;
+  color: #5a4400;
+  font-weight: 700;
+  text-align: center;
+  width: 90px;
+}
+
+.grilla-cabecera-nombre {
+  background: #f2941f;
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+  font-size: 0.95rem;
+  letter-spacing: 0.3px;
+}
+
+.grilla-cabecera-der {
+  background: #ffd54a;
+  color: #5a4400;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  width: 110px;
+}
+
+.grilla-dia {
+  background: var(--azul-pinter);
+  color: #fff;
+  text-align: center;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.grilla-esquina {
+  background: var(--azul-claro);
+  width: 30px;
+}
+
+.grilla-franja {
+  background: var(--azul-claro);
+  color: var(--azul-pinter);
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.76rem;
+}
+
+.grilla-celda {
+  text-align: center;
+}
+
+.grilla-clase {
+  padding: 2px 0;
+  line-height: 1.25;
+}
+
+.grilla-clase + .grilla-clase {
+  border-top: 1px dashed var(--gris-borde);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.grilla-asignatura {
+  font-weight: 700;
+  color: var(--azul-pinter);
+}
+
+.grilla-grupo {
+  color: #333;
+}
+
+.grilla-sede {
+  color: #777;
+  font-size: 0.76rem;
+}
+
+@media (max-width: 720px) {
+  table.grilla-horario {
+    font-size: 0.72rem;
+  }
+}
+
 @media (max-width: 720px) {
   .grid-2 { grid-template-columns: 1fr; }
 }

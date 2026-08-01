@@ -1,8 +1,7 @@
 exigirSesion();
 
 document.getElementById("nombreUsuario").textContent = getNombreUsuario();
-document.getElementById("badgeRol").textContent =
-  getRol() === "admin" ? "Administrador" : (getRol() === "coordinador" ? "Coordinador" : "Consulta");
+document.getElementById("badgeRol").textContent = etiquetaRol();
 if (getRol() === "admin") {
   document.getElementById("tabAdmin").classList.remove("oculto");
 }
@@ -111,6 +110,18 @@ function renderTabla(filas) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function limpiarFiltros() {
+  ["fPeriodo", "fDia", "fSede", "fSalon", "fGrupo"].forEach((id) => {
+    document.getElementById(id).value = "";
+  });
+  ["fMateria", "fDocente", "fFacultad", "fPrograma", "fJornada"].forEach((id) => {
+    document.getElementById(id).value = "";
+  });
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+  document.getElementById("conteo").textContent = "";
 }
 
 document.getElementById("fPeriodo").addEventListener("change", cargarFiltros);

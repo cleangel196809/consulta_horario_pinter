@@ -71,6 +71,23 @@
       </div>
     </div>
 
+    <div class="card oculto" id="cardDuplicadosPlaneacion" style="border-color:#cc3a21;">
+      <h3 style="color:#b3261e;font-size:0.95rem;margin-top:0;" id="mensajeDuplicadosPlaneacion"></h3>
+      <div class="tabla-scroll">
+        <table>
+          <thead>
+            <tr><th>Docente</th><th>Día</th><th>Hora</th><th>Salón</th><th>Grupo</th><th>Asignatura</th><th>Veces repetido</th></tr>
+          </thead>
+          <tbody id="tbodyDuplicadosPlaneacion"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="primario" style="max-width:200px;" onclick="confirmarCargaPlaneacion(true)">Sí, eliminar</button>
+        <button class="secundario" onclick="confirmarCargaPlaneacion(false)">No, cargar todo tal cual</button>
+        <button class="secundario" onclick="cancelarCargaPlaneacion()">Cancelar</button>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Historial de cargas</h2>
       <button class="secundario" onclick="cargarHistorial()">Actualizar</button>
@@ -115,6 +132,110 @@
           <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Alcance</th><th>Activo</th><th></th></tr></thead>
           <tbody id="tbodyUsuarios"></tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:#0b3d91;">
+      <h2>🗄️ Mantenimiento de base de datos</h2>
+      <p style="font-size:0.85rem;color:#555;">Edición directa de horarios e inscripciones ya cargados, pensada para
+      correcciones puntuales. Para cargas masivas usa los formularios de arriba.</p>
+
+      <h3 style="color:var(--azul-pinter);font-size:0.95rem;">Horarios</h3>
+      <div class="filtros-grid">
+        <div><label for="bhPeriodo">Período</label><input id="bhPeriodo" placeholder="Ej: 2026-3T"></div>
+        <div><label for="bhDia">Día</label><input id="bhDia" placeholder="Ej: 1. LUNES"></div>
+        <div><label for="bhDocente">Cédula docente</label><input id="bhDocente" placeholder="Ej: 51577607"></div>
+        <div><label for="bhGrupo">Grupo</label><input id="bhGrupo" placeholder="Ej: SOFE1-3TC"></div>
+        <button class="primario" onclick="buscarHorariosAdmin()">Buscar</button>
+        <button class="secundario" onclick="abrirNuevoHorario()">+ Nuevo horario</button>
+      </div>
+      <div class="tabla-scroll" style="margin-top:12px;">
+        <table>
+          <thead>
+            <tr><th>Período</th><th>Día</th><th>Hora</th><th>Grupo</th><th>Asignatura</th><th>Docente</th><th>Salón</th><th></th></tr>
+          </thead>
+          <tbody id="tbodyHorariosAdmin"></tbody>
+        </table>
+      </div>
+
+      <div class="card oculto" id="formHorarioAdmin" style="margin-top:16px;background:var(--azul-claro);">
+        <h3 id="tituloFormHorario" style="color:var(--azul-pinter);font-size:0.95rem;margin-top:0;">Nuevo horario</h3>
+        <input type="hidden" id="hId">
+        <div class="filtros-grid">
+          <div><label for="hPeriodo">Período</label><input id="hPeriodo"></div>
+          <div><label for="hCodigoAsignatura">Código asignatura</label><input id="hCodigoAsignatura"></div>
+          <div><label for="hFacultad">Facultad</label><input id="hFacultad"></div>
+          <div><label for="hPrograma">Programa</label><input id="hPrograma"></div>
+          <div><label for="hPlan">Plan</label><input id="hPlan"></div>
+          <div><label for="hAsignatura">Asignatura</label><input id="hAsignatura"></div>
+          <div><label for="hCiclo">Ciclo</label><input id="hCiclo"></div>
+          <div><label for="hCreditos">Créditos</label><input id="hCreditos"></div>
+          <div><label for="hGrupo">Grupo</label><input id="hGrupo"></div>
+          <div><label for="hCodigoMoodle">Código Moodle</label><input id="hCodigoMoodle"></div>
+          <div><label for="hCodigoTeams">Código Teams</label><input id="hCodigoTeams"></div>
+          <div><label for="hEnlaceTeams">Enlace Teams</label><input id="hEnlaceTeams"></div>
+          <div><label for="hEstado">Estado</label><input id="hEstado"></div>
+          <div><label for="hModalidad">Modalidad</label><input id="hModalidad"></div>
+          <div><label for="hJornada">Jornada</label><input id="hJornada"></div>
+          <div><label for="hCapacidad">Capacidad</label><input id="hCapacidad" type="number"></div>
+          <div><label for="hDia">Día</label><input id="hDia" placeholder="Ej: 1. LUNES"></div>
+          <div><label for="hHoraInicio">Hora inicio</label><input id="hHoraInicio" type="time"></div>
+          <div><label for="hHoraFin">Hora fin</label><input id="hHoraFin" type="time"></div>
+          <div><label for="hNombreSalon">Salón</label><input id="hNombreSalon"></div>
+          <div><label for="hSede">Sede</label><input id="hSede"></div>
+          <div><label for="hDocenteCedula">Cédula docente</label><input id="hDocenteCedula"></div>
+          <div><label for="hNombreDocente">Nombre docente</label><input id="hNombreDocente"></div>
+          <div><label for="hCorreoDocente">Correo docente</label><input id="hCorreoDocente"></div>
+          <div><label for="hObservaciones">Observaciones</label><input id="hObservaciones"></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;">
+          <button class="primario" style="max-width:180px;" onclick="guardarHorario()">Guardar</button>
+          <button class="secundario" onclick="cancelarFormHorario()">Cancelar</button>
+        </div>
+      </div>
+
+      <h3 style="color:var(--azul-pinter);font-size:0.95rem;margin-top:28px;">Inscripciones</h3>
+      <div class="filtros-grid">
+        <div><label for="biEstudiante">Cédula estudiante</label><input id="biEstudiante" placeholder="Ej: 1000001690"></div>
+        <div><label for="biPeriodo">Período</label><input id="biPeriodo" placeholder="Ej: 2026-3T"></div>
+        <button class="primario" onclick="buscarInscripcionesAdmin()">Buscar</button>
+        <button class="secundario" onclick="abrirNuevaInscripcion()">+ Nueva inscripción</button>
+      </div>
+      <div class="tabla-scroll" style="margin-top:12px;">
+        <table>
+          <thead>
+            <tr><th>Cédula estudiante</th><th>Período</th><th>Cod. asignatura</th><th>Asignatura</th><th>Grupo</th><th>Jornada</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody id="tbodyInscripcionesAdmin"></tbody>
+        </table>
+      </div>
+
+      <div class="card oculto" id="formInscripcionAdmin" style="margin-top:16px;background:var(--azul-claro);">
+        <h3 id="tituloFormInscripcion" style="color:var(--azul-pinter);font-size:0.95rem;margin-top:0;">Nueva inscripción</h3>
+        <input type="hidden" id="iId">
+        <div class="filtros-grid">
+          <div><label for="iEstudianteCedula">Cédula estudiante</label><input id="iEstudianteCedula"></div>
+          <div><label for="iPeriodo">Período</label><input id="iPeriodo"></div>
+          <div><label for="iCicloIngreso">Ciclo de ingreso</label><input id="iCicloIngreso"></div>
+          <div><label for="iCodPlan">Código plan</label><input id="iCodPlan"></div>
+          <div><label for="iNomPlan">Nombre plan / programa</label><input id="iNomPlan"></div>
+          <div><label for="iCodAsignatura">Código asignatura</label><input id="iCodAsignatura"></div>
+          <div><label for="iAsignatura">Asignatura</label><input id="iAsignatura"></div>
+          <div><label for="iCiclo">Ciclo</label><input id="iCiclo"></div>
+          <div><label for="iCreditos">Créditos</label><input id="iCreditos"></div>
+          <div><label for="iGrupo">Grupo</label><input id="iGrupo"></div>
+          <div><label for="iJornada">Jornada</label><input id="iJornada"></div>
+          <div><label for="iEstado">Estado</label><input id="iEstado"></div>
+          <div><label for="iSede">Sede</label><input id="iSede"></div>
+          <div><label for="iIdentificador">Identificador</label><input id="iIdentificador"></div>
+          <div><label for="iFlgVirtual">Virtual (S/N)</label><input id="iFlgVirtual"></div>
+          <div><label for="iNombreFacultad">Facultad</label><input id="iNombreFacultad"></div>
+          <div><label for="iSemilla">Semilla</label><input id="iSemilla"></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;">
+          <button class="primario" style="max-width:180px;" onclick="guardarInscripcion()">Guardar</button>
+          <button class="secundario" onclick="cancelarFormInscripcion()">Cancelar</button>
+        </div>
       </div>
     </div>
   </main>

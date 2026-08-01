@@ -22,11 +22,33 @@
         <br><br>
         <button type="submit" class="primario">Ingresar</button>
       </form>
+
+      <div id="cajaCambioPassword" class="oculto">
+        <p style="font-size:0.85rem;color:#555;text-align:center;margin-bottom:14px;">
+          Es tu primer ingreso (o un administrador reinició tu clave). Debes definir una
+          nueva contraseña antes de continuar.
+        </p>
+        <div id="msgCambioPassword" class="mensaje-error"></div>
+        <form id="formCambioPassword">
+          <label for="passwordActualCambio">Contraseña actual</label>
+          <input type="password" id="passwordActualCambio" required>
+          <br><br>
+          <label for="passwordNueva">Nueva contraseña</label>
+          <input type="password" id="passwordNueva" minlength="4" required>
+          <br><br>
+          <label for="passwordNuevaConfirmar">Confirmar nueva contraseña</label>
+          <input type="password" id="passwordNuevaConfirmar" minlength="4" required>
+          <br><br>
+          <button type="submit" class="primario">Cambiar contraseña y continuar</button>
+        </form>
+      </div>
     </div>
   </div>
 
   <script src="/js/api.js"></script>
   <script>
+    let tokenTemporal = null;
+
     document.getElementById("formLogin").addEventListener("submit", async (e) => {
       e.preventDefault();
       const username = document.getElementById("username").value.trim();
@@ -53,6 +75,54 @@
         localStorage.setItem("ph_rol", data.rol);
         localStorage.setItem("ph_nombre", data.nombre_completo || data.username);
         localStorage.setItem("ph_username", data.username);
+
+        if (data.debe_cambiar_password === true) {
+          tokenTemporal = data.access_token;
+          document.getElementById("passwordActualCambio").value = password;
+          document.getElementById("formLogin").classList.add("oculto");
+          document.getElementById("cajaCambioPassword").classList.remove("oculto");
+          return;
+        }
+        window.location.href = "/consulta.html";
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.style.display = "block";
+      }
+    });
+
+    document.getElementById("formCambioPassword").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("msgCambioPassword");
+      msg.style.display = "none";
+
+      const passwordActual = document.getElementById("passwordActualCambio").value;
+      const passwordNueva = document.getElementById("passwordNueva").value;
+      const passwordConfirmar = document.getElementById("passwordNuevaConfirmar").value;
+
+      if (passwordNueva.length < 4) {
+        msg.textContent = "La nueva contraseña debe tener al menos 4 caracteres.";
+        msg.style.display = "block";
+        return;
+      }
+      if (passwordNueva !== passwordConfirmar) {
+        msg.textContent = "Las contraseñas nuevas no coinciden.";
+        msg.style.display = "block";
+        return;
+      }
+
+      try {
+        const resp = await fetch("/api/auth/cambiar-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenTemporal}`,
+          },
+          body: JSON.stringify({ password_actual: passwordActual, password_nueva: passwordNueva }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(data.detail || "No se pudo cambiar la contraseña");
+        }
         window.location.href = "/consulta.html";
       } catch (err) {
         msg.textContent = err.message;

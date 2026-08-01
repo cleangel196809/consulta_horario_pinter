@@ -104,17 +104,22 @@ CREATE INDEX IF NOT EXISTS idx_inscripciones_periodo ON inscripciones(periodo);
 
 -- Usuarios de la aplicación (login).
 -- rol = 'admin' (control total) | 'consulta' (solo lectura) |
---       'coordinador' (solo lectura, limitado a su facultad y/o sede)
+--       'coordinador' (solo lectura, limitado a su facultad y/o sede) |
+--       'docente' (login automático de un docente, solo lectura) |
+--       'consulta_estudiante' (login automático de un estudiante, solo lectura)
 CREATE TABLE IF NOT EXISTS usuarios (
     id                     BIGSERIAL PRIMARY KEY,
     username               VARCHAR(80) UNIQUE NOT NULL,
     password_hash          VARCHAR(255) NOT NULL,
     nombre_completo        VARCHAR(200),
-    rol                    VARCHAR(20) NOT NULL DEFAULT 'consulta' CHECK (rol IN ('admin','consulta','coordinador')),
+    rol                    VARCHAR(20) NOT NULL DEFAULT 'consulta' CHECK (rol IN ('admin','consulta','coordinador','docente','consulta_estudiante')),
     cedula_relacionada      VARCHAR(30),  -- opcional: vincula el usuario a un docente/estudiante
     facultad_alcance        VARCHAR(150), -- solo aplica si rol = 'coordinador'
     sede_alcance            VARCHAR(100), -- solo aplica si rol = 'coordinador'
     activo                 BOOLEAN DEFAULT TRUE,
+    -- Fuerza el cambio de contraseña en el primer ingreso de usuarios
+    -- creados automáticamente para docentes/estudiantes (clave inicial = cédula).
+    debe_cambiar_password  BOOLEAN DEFAULT FALSE,
     creado_en              TIMESTAMP DEFAULT NOW()
 );
 
@@ -131,3 +136,30 @@ CREATE TABLE IF NOT EXISTS cargas_archivo (
     detalle_error          TEXT,
     creado_en              TIMESTAMP DEFAULT NOW()
 );
+
+-- =====================================================================
+-- Mini-migración manual (idempotente): este archivo `init_db.sql` SOLO se
+-- ejecuta automáticamente la primera vez que el volumen de Postgres está
+-- vacío (docker-entrypoint-initdb.d). Si ya tienes un volumen existente y
+-- no quieres borrarlo, corre manualmente las sentencias de abajo contra tu
+-- base de datos para quedar al día con los cambios de este esquema.
+-- =====================================================================
+
+-- Login de docentes/estudiantes con correo institucional + cédula, forzando
+-- cambio de contraseña en el primer ingreso (ver services/usuarios_auto.py).
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT FALSE;
+
+-- Amplía el CHECK de rol para incluir los roles nuevos 'docente' y
+-- 'consulta_estudiante'. Postgres no soporta "ALTER CONSTRAINT ... ADD
+-- VALUE" para CHECK, así que hay que quitar el constraint viejo (si existe
+-- con su nombre por defecto) y crear uno nuevo equivalente.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'usuarios_rol_check'
+    ) THEN
+        ALTER TABLE usuarios DROP CONSTRAINT usuarios_rol_check;
+    END IF;
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
+        CHECK (rol IN ('admin','consulta','coordinador','docente','consulta_estudiante'));
+END $$;

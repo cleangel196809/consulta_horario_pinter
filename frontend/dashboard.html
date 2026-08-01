@@ -62,6 +62,25 @@
     </div>
 
     <div class="card">
+      <h2>Gráfico de barras personalizado</h2>
+      <div class="filtros-grid">
+        <div>
+          <label for="selectGraficoBarras">Elige un reporte</label>
+          <select id="selectGraficoBarras">
+            <option value="grupos_origen">Grupos por origen</option>
+            <option value="matriculados_programa">Matriculados por programa</option>
+            <option value="matriculados_sede">Matriculados por sede</option>
+            <option value="matriculados_jornada">Matriculados por jornada</option>
+            <option value="ocupacion_salones">Ocupación de salones por franja</option>
+            <option value="carga_docente">Carga horaria por docente</option>
+          </select>
+        </div>
+        <button class="primario" onclick="generarGraficoPersonalizado()">Generar gráfico</button>
+      </div>
+      <canvas id="chartPersonalizado" height="260" style="margin-top:16px;"></canvas>
+    </div>
+
+    <div class="card">
       <h2>Carga horaria por docente <span id="umbralSobrecarga" class="pill"></span></h2>
       <div class="tabla-scroll">
         <table>
