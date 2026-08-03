@@ -1,0 +1,53 @@
+databases:
+  - name: pinter-db
+    plan: free
+    databaseName: consulta_horario_pinter
+    user: pinter_admin
+
+services:
+  - type: web
+    name: pinter-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /api/salud
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: pinter-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: pinter-db
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: pinter-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: pinter-db
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: pinter-db
+          property: database
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "480"
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        value: CambiaEstaClave2026!
+      - key: TEST_USERNAME
+        value: consulta_prueba
+      - key: TEST_PASSWORD
+        value: prueba123
+      - key: COORD_USERNAME
+        value: coord_prueba
+      - key: COORD_PASSWORD
+        value: coord123
+      - key: COORD_FACULTAD_ALCANCE
+        value: SALUD
