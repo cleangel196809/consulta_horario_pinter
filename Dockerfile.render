@@ -14,7 +14,17 @@ COPY backend/scripts ./scripts
 COPY frontend ./frontend
 
 ENV FRONTEND_DIR=/app/frontend
+# Render inyecta su propio PORT (por defecto 10000) y espera que el proceso
+# escuche exactamente ahí; si el contenedor escucha en un puerto fijo que no
+# coincide, el "port scan" de Render nunca lo detecta y el deploy se queda
+# atascado en "no open ports detected" aunque la app funcione bien por dentro.
+# Con este valor por defecto seguimos escuchando en 8000 si Render no manda
+# PORT (por ejemplo al correr el contenedor localmente), pero respetamos el
+# valor real si lo manda.
+ENV PORT=8000
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Forma shell (no forma exec) a propósito: así se expande la variable $PORT
+# en tiempo de ejecución en vez de quedar fija en la imagen.
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
