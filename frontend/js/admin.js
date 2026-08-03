@@ -176,20 +176,42 @@ async function ejecutarCargaPlaneacion(eliminarDuplicados) {
   }
 }
 
+const nombresDeCargas = {}; // cargaId -> nombre_archivo, usado por eliminarCarga() para el mensaje de confirmación
+
 async function cargarHistorial() {
   try {
     const data = await apiFetch("/admin/cargas");
     const tbody = document.getElementById("tbodyHistorial");
     tbody.innerHTML = "";
     data.forEach((c) => {
+      nombresDeCargas[c.id] = c.nombre_archivo || "";
       const tr = document.createElement("tr");
       const fecha = c.creado_en ? new Date(c.creado_en).toLocaleString() : "";
       tr.innerHTML = `<td>${fecha}</td><td>${c.tipo}</td><td>${c.nombre_archivo || ""}</td><td>${c.periodo || ""}</td><td>${c.filas_procesadas}</td><td>${c.duplicados_omitidos || 0}</td><td>${c.filas_error}</td><td>${c.estado}</td>
-        <td><button class="secundario" onclick="notificarCarga(${c.id})">Notificar</button></td>`;
+        <td><button class="secundario" onclick="notificarCarga(${c.id})">Notificar</button></td>
+        <td><button class="secundario" style="color:#b3261e;border-color:#b3261e;" onclick="eliminarCarga(${c.id})">Eliminar</button></td>`;
       tbody.appendChild(tr);
     });
   } catch (err) {
     console.error(err);
+  }
+}
+
+async function eliminarCarga(cargaId) {
+  const nombreArchivo = nombresDeCargas[cargaId] || `carga #${cargaId}`;
+  if (
+    !confirm(
+      `¿Seguro que deseas eliminar el archivo "${nombreArchivo}" y TODOS los horarios/inscripciones que cargó?\n\n` +
+        "Esta acción no se puede deshacer. Úsala cuando el Excel tenía errores y vas a volver a subir una versión corregida."
+    )
+  )
+    return;
+  try {
+    const data = await apiFetch(`/admin/cargas/${cargaId}`, { method: "DELETE" });
+    alert(`Carga eliminada. Filas eliminadas: ${data.filas_eliminadas}.`);
+    cargarHistorial();
+  } catch (err) {
+    alert("Error: " + err.message);
   }
 }
 

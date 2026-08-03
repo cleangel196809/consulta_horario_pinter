@@ -156,6 +156,47 @@ def historial_de_cargas(
     return q.order_by(models.CargaArchivo.creado_en.desc()).limit(100).all()
 
 
+@router.delete("/cargas/{carga_id}")
+def eliminar_carga(
+    carga_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_admin),
+):
+    """Elimina un archivo cargado y TODOS los datos que ese archivo insertó
+    (horarios si era una carga de planeación, inscripciones si era de
+    inscritos), para poder corregir el Excel y volver a subirlo desde cero
+    sin dejar datos viejos mezclados con los nuevos.
+
+    No borra los docentes/estudiantes en sí (esos registros pueden venir de
+    otras cargas posteriores, así que no son propiedad exclusiva de esta
+    carga), solo las filas de horarios/inscripciones marcadas con ese
+    `carga_id`, más el registro de la carga en el historial.
+    """
+    carga = db.query(models.CargaArchivo).filter(models.CargaArchivo.id == carga_id).first()
+    if not carga:
+        raise HTTPException(status_code=404, detail="Carga no encontrada")
+
+    if carga.tipo == "planeacion":
+        filas_eliminadas = (
+            db.query(models.Horario)
+            .filter(models.Horario.carga_id == carga_id)
+            .delete(synchronize_session=False)
+        )
+    else:
+        filas_eliminadas = (
+            db.query(models.Inscripcion)
+            .filter(models.Inscripcion.carga_id == carga_id)
+            .delete(synchronize_session=False)
+        )
+
+    db.delete(carga)
+    db.commit()
+    return {
+        "detail": "Carga y sus datos asociados fueron eliminados correctamente.",
+        "filas_eliminadas": filas_eliminadas,
+    }
+
+
 @router.post("/cargas/{carga_id}/notificar")
 def notificar_afectados_de_carga(
     carga_id: int,
