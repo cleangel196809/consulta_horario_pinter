@@ -8,7 +8,7 @@ inexistente.
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Iterable
+from typing import Iterable, Optional
 
 from ..config import settings
 
@@ -69,3 +69,21 @@ def notificar_carga(
         "fallidos": fallidos,
         "errores": detalle_errores[:20],
     }
+
+
+def enviar_correo_reset_password(destinatario: str, nombre: Optional[str], link: str) -> bool:
+    """Envía el enlace para restablecer la contraseña. Devuelve False (sin
+    lanzar excepción) si SMTP no está configurado, igual que el resto de
+    notificaciones de esta aplicación."""
+    if not settings.smtp_configurado:
+        return False
+    asunto = "Restablecer tu contraseña - Consulta de Horarios PINTER"
+    cuerpo = f"""
+    <p>Hola {nombre or ''},</p>
+    <p>Recibimos una solicitud para restablecer tu contraseña en el sistema de
+    Consulta de Horarios PINTER.</p>
+    <p><a href="{link}">Haz clic aquí para definir una nueva contraseña</a>.</p>
+    <p>Este enlace es válido por 30 minutos. Si no solicitaste este cambio,
+    puedes ignorar este correo: tu contraseña actual sigue funcionando.</p>
+    """
+    return _enviar_correo(destinatario, asunto, cuerpo)

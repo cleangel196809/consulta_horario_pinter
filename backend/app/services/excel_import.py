@@ -125,8 +125,19 @@ def _find_header_row(ws, must_contain, max_scan: int = 20):
     )
 
 
+DOCENTE_BATCH_SIZE = 500
+INSCRITO_BATCH_SIZE = 500
+
+
 def import_docentes_desde_planeacion(db: Session, wb, carga_id: int) -> tuple[int, int]:
     """Importa/actualiza la hoja DOCENTES (NIT_CC, NOMBRE_COMPLETO, CORREO, FACULTAD, SEDE).
+
+    Se deduplica por `cedula` (se conserva la primera aparición si el mismo
+    docente sale repetido en el archivo) y se inserta en lotes (una sola
+    sentencia SQL de "upsert" por lote, en vez de una consulta por fila) —
+    con archivos de miles de filas, esto reduce drásticamente el número de
+    viajes de ida y vuelta a la base de datos, que es lo que hacía que la
+    carga se sintiera "colgada" en instancias con poca CPU.
 
     Al final de la importación, sincroniza automáticamente el usuario de
     login de cada docente con correo institucional @pi.edu.co (ver
@@ -139,6 +150,27 @@ def import_docentes_desde_planeacion(db: Session, wb, carga_id: int) -> tuple[in
     mapping = _header_map(header_row)
 
     procesadas, errores = 0, 0
+    vistos: set[int] = set()
+    lote: list[dict] = []
+    docentes_info: dict[int, dict] = {}
+
+    def _volcar_lote():
+        nonlocal lote
+        if not lote:
+            return
+        stmt = pg_insert(models.Docente).values(lote)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["cedula"],
+            set_=dict(
+                nombre_completo=stmt.excluded.nombre_completo,
+                correo_institucional=stmt.excluded.correo_institucional,
+                facultad=stmt.excluded.facultad,
+                sede=stmt.excluded.sede,
+            ),
+        )
+        db.execute(stmt)
+        lote = []
+
     for row in ws.iter_rows(min_row=header_row_num + 1, values_only=True):
         if row is None or all(v is None for v in row):
             continue
@@ -147,6 +179,10 @@ def import_docentes_desde_planeacion(db: Session, wb, carga_id: int) -> tuple[in
             nombre = _to_str(_get(row, mapping, "NOMBRE_COMPLETO"))
             if not cedula or not nombre:
                 continue
+            if cedula in vistos:
+                continue  # docente repetido en el archivo: se conserva la primera fila
+            vistos.add(cedula)
+
             correo = _to_str(_get(row, mapping, "CORREO INSTITUCIONAL", "CORREO_INSTITUCIONAL"))
             facultad = _to_str(_get(row, mapping, "FACULTAD"))
             sede = _to_str(_get(row, mapping, "SEDE"))
@@ -155,33 +191,32 @@ def import_docentes_desde_planeacion(db: Session, wb, carga_id: int) -> tuple[in
             if sede and sede.upper() in ("#N/A", "N/A"):
                 sede = None
 
-            stmt = pg_insert(models.Docente).values(
+            lote.append(dict(
                 cedula=cedula,
                 nombre_completo=nombre,
                 correo_institucional=correo,
                 facultad=facultad,
                 sede=sede,
-            ).on_conflict_do_update(
-                index_elements=["cedula"],
-                set_=dict(
-                    nombre_completo=nombre,
-                    correo_institucional=correo,
-                    facultad=facultad,
-                    sede=sede,
-                ),
-            )
-            db.execute(stmt)
+            ))
+            docentes_info[cedula] = {"nombre_completo": nombre, "correo_institucional": correo}
             procesadas += 1
 
-            # Sincronización de usuario de login del docente. Se aísla en su
-            # propio try/except para que un problema al crear/actualizar el
-            # usuario NUNCA haga fallar la importación del docente en sí.
-            try:
-                sincronizar_usuario_docente(db, cedula, nombre, correo)
-            except Exception:
-                pass
+            if len(lote) >= DOCENTE_BATCH_SIZE:
+                _volcar_lote()
         except Exception:
             errores += 1
+
+    _volcar_lote()
+
+    # Sincronización de usuario de login de cada docente. Se aísla por
+    # docente en su propio try/except para que un problema al crear/
+    # actualizar un usuario NUNCA haga fallar la importación en sí.
+    for cedula, info in docentes_info.items():
+        try:
+            sincronizar_usuario_docente(db, cedula, info["nombre_completo"], info["correo_institucional"])
+        except Exception:
+            pass
+
     db.commit()
     return procesadas, errores
 
@@ -411,19 +446,76 @@ def importar_planeacion(
 
 def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: int) -> dict:
     """Importa el archivo INSCRITOS_POR_CICLO (hoja única, con filas de título
-    antes del encabezado real). Al finalizar, sincroniza automáticamente el
-    usuario de login de cada estudiante con correo @pi.edu.co (ver
-    `services/usuarios_auto.py`)."""
+    antes del encabezado real).
+
+    Antes de tocar la base de datos se deduplica por (nombre completo, grupo,
+    código de materia): si esa combinación ya se vio en una fila anterior del
+    mismo archivo, la fila se descarta y se cuenta en `duplicados_omitidos`
+    (no se considera un error). Las filas que sí quedan se insertan en lotes
+    — una sola sentencia SQL de "upsert" por lote de hasta
+    `INSCRITO_BATCH_SIZE` filas, en vez de una consulta por fila — para que
+    archivos de miles de filas no se vuelvan impracticables en instancias con
+    poca CPU (como el plan gratuito de Render).
+
+    Al finalizar, sincroniza automáticamente el usuario de login de cada
+    estudiante con correo @pi.edu.co (ver `services/usuarios_auto.py`)."""
     wb = openpyxl.load_workbook(BytesIO(file_bytes), data_only=True)
     ws = wb[wb.sheetnames[0]]
     header_row_num, header_row = _find_header_row(ws, ["IDENTIFICACION", "GRUPO", "ASIGNATURA"])
     mapping = _header_map(header_row)
 
-    procesadas, errores = 0, 0
-    estudiantes_vistos = set()
+    procesadas, errores, duplicados = 0, 0, 0
+    estudiantes_vistos: set = set()
+    claves_vistas: set = set()
     # Info mínima de cada estudiante visto en esta carga, para poder
     # sincronizar su usuario de login al final sin tener que releer el Excel.
     estudiantes_info: dict[str, dict] = {}
+
+    lote_estudiantes: list = []
+    lote_inscripciones: list = []
+
+    def _volcar_estudiantes():
+        nonlocal lote_estudiantes
+        if not lote_estudiantes:
+            return
+        # Se limpia el lote ANTES de ejecutar el INSERT: si algo falla, la
+        # lista ya quedó vacía y no se vuelve a reintentar en el siguiente
+        # renglón con una lista cada vez más grande (eso fue justamente lo
+        # que causaba que una carga con error se sintiera "colgada" en vez
+        # de simplemente contarse como fila con error).
+        lote, lote_estudiantes = lote_estudiantes, []
+        stmt = pg_insert(models.Estudiante).values(lote)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["cedula"],
+            set_=dict(
+                tipo=stmt.excluded.tipo,
+                nombres=stmt.excluded.nombres,
+                apellidos=stmt.excluded.apellidos,
+                correo_aula_virtual=stmt.excluded.correo_aula_virtual,
+                email=stmt.excluded.email,
+                celular=stmt.excluded.celular,
+                telefono=stmt.excluded.telefono,
+                ciclo_ingreso=stmt.excluded.ciclo_ingreso,
+            ),
+        )
+        db.execute(stmt)
+
+    def _volcar_inscripciones():
+        nonlocal lote_inscripciones
+        if not lote_inscripciones:
+            return
+        lote, lote_inscripciones = lote_inscripciones, []
+        stmt = pg_insert(models.Inscripcion).values(lote)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["estudiante_cedula", "periodo", "cod_asignatura", "grupo"],
+            set_=dict(
+                estado=stmt.excluded.estado,
+                jornada=stmt.excluded.jornada,
+                sede=stmt.excluded.sede,
+                carga_id=stmt.excluded.carga_id,
+            ),
+        )
+        db.execute(stmt)
 
     for row in ws.iter_rows(min_row=header_row_num + 1, values_only=True):
         if row is None or all(v is None for v in row):
@@ -433,13 +525,24 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
             if not cedula:
                 continue
 
+            nombres = _to_str(_get(row, mapping, "NOMBRES"))
+            apellidos = _to_str(_get(row, mapping, "APELLIDOS"))
+            grupo = _to_str(_get(row, mapping, "GRUPO"))
+            cod_asignatura = _to_str(_get(row, mapping, "COD_ASIGNATURA"))
+
+            # Deduplicación solicitada: nombre completo + grupo + código de
+            # materia. Si ya se vio esa combinación en este mismo archivo, se
+            # descarta la fila (se conserva solo la primera aparición).
+            clave = (_norm(f"{nombres} {apellidos}"), _norm(grupo or ""), _norm(cod_asignatura or ""))
+            if clave in claves_vistas:
+                duplicados += 1
+                continue
+            claves_vistas.add(clave)
+
             if cedula not in estudiantes_vistos:
-                nombres = _to_str(_get(row, mapping, "NOMBRES"))
-                apellidos = _to_str(_get(row, mapping, "APELLIDOS"))
                 email = _to_str(_get(row, mapping, "EMAIL"))
                 correo_aula_virtual = _to_str(_get(row, mapping, "CORREO AULA VIRTUAL"))
-
-                stmt = pg_insert(models.Estudiante).values(
+                lote_estudiantes.append(dict(
                     cedula=cedula,
                     tipo=_to_str(_get(row, mapping, "TIPO")),
                     nombres=nombres,
@@ -449,20 +552,7 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
                     celular=_to_str(_get(row, mapping, "CELULAR")),
                     telefono=_to_str(_get(row, mapping, "TELEFONO")),
                     ciclo_ingreso=_to_str(_get(row, mapping, "CICLO_INGRESO")),
-                ).on_conflict_do_update(
-                    index_elements=["cedula"],
-                    set_=dict(
-                        tipo=_to_str(_get(row, mapping, "TIPO")),
-                        nombres=nombres,
-                        apellidos=apellidos,
-                        correo_aula_virtual=correo_aula_virtual,
-                        email=email,
-                        celular=_to_str(_get(row, mapping, "CELULAR")),
-                        telefono=_to_str(_get(row, mapping, "TELEFONO")),
-                        ciclo_ingreso=_to_str(_get(row, mapping, "CICLO_INGRESO")),
-                    ),
-                )
-                db.execute(stmt)
+                ))
                 estudiantes_vistos.add(cedula)
                 estudiantes_info[cedula] = {
                     "nombre_completo": " ".join(p for p in (nombres, apellidos) if p) or None,
@@ -470,17 +560,17 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
                     "correo_aula_virtual": correo_aula_virtual,
                 }
 
-            inscripcion_stmt = pg_insert(models.Inscripcion).values(
+            lote_inscripciones.append(dict(
                 estudiante_cedula=cedula,
                 periodo=periodo,
                 ciclo_ingreso=_to_str(_get(row, mapping, "CICLO_INGRESO")),
                 cod_plan=_to_str(_get(row, mapping, "COD_PLAN")),
                 nom_plan=_to_str(_get(row, mapping, "NOM_PLAN")),
-                cod_asignatura=_to_str(_get(row, mapping, "COD_ASIGNATURA")),
+                cod_asignatura=cod_asignatura,
                 asignatura=_to_str(_get(row, mapping, "ASIGNATURA")),
                 ciclo=_to_str(_get(row, mapping, "CICLO")),
                 creditos=_to_str(_get(row, mapping, "CREDITOS")),
-                grupo=_to_str(_get(row, mapping, "GRUPO")),
+                grupo=grupo,
                 jornada=_to_str(_get(row, mapping, "JORNADA")),
                 estado=_to_str(_get(row, mapping, "ESTADO")),
                 sede=_to_str(_get(row, mapping, "SEDE")),
@@ -489,19 +579,28 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
                 nombre_facultad=_to_str(_get(row, mapping, "NOMBRE_FACULTAD")),
                 semilla=_to_str(_get(row, mapping, "SEMILLA")),
                 carga_id=carga_id,
-            ).on_conflict_do_update(
-                index_elements=["estudiante_cedula", "periodo", "cod_asignatura", "grupo"],
-                set_=dict(
-                    estado=_to_str(_get(row, mapping, "ESTADO")),
-                    jornada=_to_str(_get(row, mapping, "JORNADA")),
-                    sede=_to_str(_get(row, mapping, "SEDE")),
-                    carga_id=carga_id,
-                ),
-            )
-            db.execute(inscripcion_stmt)
+            ))
             procesadas += 1
+
+            # Cada lote se vuelca en una sola sentencia SQL (upsert
+            # multi-fila) antes de que crezca demasiado. IMPORTANTE: cuando
+            # toca vaciar el lote de inscripciones, el de estudiantes se
+            # vacía PRIMERO siempre — una inscripción hace referencia
+            # (llave foránea) a su estudiante, y como cada lote se llena a
+            # un ritmo distinto (estudiantes solo crece con cédulas nuevas,
+            # inscripciones crece con cada fila), vaciarlos en cualquier
+            # orden puede intentar insertar la inscripción de un estudiante
+            # que todavía no se guardó, y eso rompía la carga completa.
+            if len(lote_inscripciones) >= INSCRITO_BATCH_SIZE:
+                _volcar_estudiantes()
+                _volcar_inscripciones()
+            elif len(lote_estudiantes) >= INSCRITO_BATCH_SIZE:
+                _volcar_estudiantes()
         except Exception:
             errores += 1
+
+    _volcar_estudiantes()
+    _volcar_inscripciones()
 
     # Sincronización de usuarios de login de estudiantes (aislada en su
     # propio try/except por estudiante para no afectar el resultado de la
@@ -515,4 +614,8 @@ def importar_inscritos(db: Session, file_bytes: bytes, periodo: str, carga_id: i
             pass
 
     db.commit()
-    return {"filas_procesadas": procesadas, "filas_error": errores}
+    return {
+        "filas_procesadas": procesadas,
+        "filas_error": errores,
+        "duplicados_omitidos": duplicados,
+    }

@@ -95,7 +95,7 @@ def _sincronizar_usuario(
 
     nuevo = models.Usuario(
         username=username,
-        password_hash=hash_password(str(cedula)),
+        password_hash=hash_password(str(cedula), bulk=True),
         nombre_completo=nombre_completo,
         rol=rol,
         cedula_relacionada=str(cedula),

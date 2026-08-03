@@ -115,6 +115,10 @@ class Usuario(Base):
     # docente/estudiante (contraseña inicial = cédula), para obligarlo a
     # cambiar su contraseña en el primer ingreso. Ver services/usuarios_auto.py.
     debe_cambiar_password = Column(Boolean, default=False)
+    # Recuperación de contraseña ("olvidé mi contraseña"): token de un solo
+    # uso con expiración, ver routers/auth.py.
+    reset_token = Column(String(255))
+    reset_token_expira = Column(DateTime)
     creado_en = Column(DateTime, server_default=func.now())
 
 
@@ -128,6 +132,10 @@ class CargaArchivo(Base):
     usuario_id = Column(BigInteger, ForeignKey("usuarios.id"))
     filas_procesadas = Column(Integer, default=0)
     filas_error = Column(Integer, default=0)
+    # Filas que se descartaron por ser duplicados (mismo nombre + grupo +
+    # código de materia ya visto antes en el mismo archivo). Ver
+    # services/excel_import.py.
+    duplicados_omitidos = Column(Integer, default=0)
     estado = Column(String(30), default="completado")
     detalle_error = Column(Text)
     creado_en = Column(DateTime, server_default=func.now())

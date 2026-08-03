@@ -131,6 +131,7 @@ def cargar_inscritos(
         resultado = importar_inscritos(db, contenido, periodo, carga.id)
         carga.filas_procesadas = resultado["filas_procesadas"]
         carga.filas_error = resultado["filas_error"]
+        carga.duplicados_omitidos = resultado.get("duplicados_omitidos", 0)
         carga.estado = "completado"
     except Exception as exc:
         carga.estado = "error"

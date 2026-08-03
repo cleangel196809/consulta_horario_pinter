@@ -26,6 +26,15 @@ class CambiarPasswordRequest(BaseModel):
     password_nueva: str
 
 
+class OlvidePasswordRequest(BaseModel):
+    username: str
+
+
+class RestablecerPasswordRequest(BaseModel):
+    token: str
+    password_nueva: str
+
+
 class UsuarioCreate(BaseModel):
     username: str
     password: str
@@ -237,6 +246,7 @@ class CargaArchivoOut(BaseModel):
     periodo: Optional[str]
     filas_procesadas: int
     filas_error: int
+    duplicados_omitidos: Optional[int] = 0
     estado: str
     creado_en: Optional[datetime] = None
 

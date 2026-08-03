@@ -184,7 +184,7 @@ async function cargarHistorial() {
     data.forEach((c) => {
       const tr = document.createElement("tr");
       const fecha = c.creado_en ? new Date(c.creado_en).toLocaleString() : "";
-      tr.innerHTML = `<td>${fecha}</td><td>${c.tipo}</td><td>${c.nombre_archivo || ""}</td><td>${c.periodo || ""}</td><td>${c.filas_procesadas}</td><td>${c.filas_error}</td><td>${c.estado}</td>
+      tr.innerHTML = `<td>${fecha}</td><td>${c.tipo}</td><td>${c.nombre_archivo || ""}</td><td>${c.periodo || ""}</td><td>${c.filas_procesadas}</td><td>${c.duplicados_omitidos || 0}</td><td>${c.filas_error}</td><td>${c.estado}</td>
         <td><button class="secundario" onclick="notificarCarga(${c.id})">Notificar</button></td>`;
       tbody.appendChild(tr);
     });

@@ -4,12 +4,32 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from .database import Base, engine, SessionLocal
 from . import models
 from .config import settings
 from .security import hash_password
 from .routers import auth, horarios, docentes, estudiantes, admin_upload, admin_crud, usuarios, exportar, reportes
+
+
+def migrar_columnas_nuevas():
+    """`Base.metadata.create_all()` solo crea tablas que no existen: NO le
+    agrega columnas nuevas a una tabla que ya existía (por ejemplo, la base
+    de datos de una instalación ya desplegada, como la de Render). Este
+    bloque es una mini-migración idempotente (se puede correr en cada
+    arranque sin problema) para que esas instalaciones existentes reciban
+    las columnas agregadas después del primer despliegue."""
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255)"
+        ))
+        conn.execute(text(
+            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expira TIMESTAMP"
+        ))
+        conn.execute(text(
+            "ALTER TABLE cargas_archivo ADD COLUMN IF NOT EXISTS duplicados_omitidos INTEGER DEFAULT 0"
+        ))
 
 
 def crear_admin_inicial():
@@ -70,6 +90,7 @@ def crear_admin_inicial():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    migrar_columnas_nuevas()
     crear_admin_inicial()
     yield
 

@@ -163,3 +163,12 @@ BEGIN
     ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
         CHECK (rol IN ('admin','consulta','coordinador','docente','consulta_estudiante'));
 END $$;
+
+-- Flujo de "olvidé mi contraseña" (ver routers/auth.py): token de un solo
+-- uso con expiración.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expira TIMESTAMP;
+
+-- Cuenta de filas descartadas por duplicado (mismo nombre + grupo + código
+-- de materia) al importar INSCRITOS. Ver services/excel_import.py.
+ALTER TABLE cargas_archivo ADD COLUMN IF NOT EXISTS duplicados_omitidos INTEGER DEFAULT 0;
