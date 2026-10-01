@@ -39,7 +39,9 @@ def crear_usuario(
             status_code=400,
             detail=f"El rol debe ser uno de: {', '.join(roles_validos)}.",
         )
-    if datos.rol == "coordinador" and not (datos.facultad_alcance or datos.sede_alcance):
+    if datos.rol == "coordinador" and not (
+        datos.facultad_alcance or datos.sede_alcance or datos.programa_alcance
+    ):
         raise HTTPException(
             status_code=400,
             detail="Un coordinador debe tener al menos una facultad o sede de alcance asignada.",
@@ -57,6 +59,7 @@ def crear_usuario(
         cedula_relacionada=datos.cedula_relacionada,
         facultad_alcance=datos.facultad_alcance if datos.rol in ("coordinador", "decano") else None,
         sede_alcance=datos.sede_alcance if datos.rol == "coordinador" else None,
+        programa_alcance=datos.programa_alcance if datos.rol == "coordinador" else None,
     )
     db.add(usuario)
     db.flush()

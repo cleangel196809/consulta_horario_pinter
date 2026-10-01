@@ -34,8 +34,9 @@ Para **Asistencia a Grados** se usan los roles institucionales:
 
 El servidor aplica estos permisos; ocultar controles en el navegador es solo
 una ayuda de interfaz. Para `decano`, `facultad_alcance` es obligatoria. Para
-`coordinador`, `facultad_alcance` y `sede_alcance` representan respectivamente
-la facultad y el programa autorizados dentro del módulo de grados.
+`coordinador`, `facultad_alcance`, `sede_alcance` y `programa_alcance`
+representan respectivamente la facultad, sede y programa autorizados; el
+módulo de grados exige `programa_alcance`.
 
 Solo el administrador puede cargar los archivos de **planeación** e
 **inscritos** en cada ciclo, desde el Panel administrador de la aplicación

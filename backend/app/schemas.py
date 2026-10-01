@@ -43,6 +43,7 @@ class UsuarioCreate(BaseModel):
     cedula_relacionada: Optional[str] = None
     facultad_alcance: Optional[str] = None
     sede_alcance: Optional[str] = None
+    programa_alcance: Optional[str] = None
 
 
 class UsuarioOut(BaseModel):
@@ -52,6 +53,7 @@ class UsuarioOut(BaseModel):
     rol: str
     facultad_alcance: Optional[str] = None
     sede_alcance: Optional[str] = None
+    programa_alcance: Optional[str] = None
     activo: bool
     debe_cambiar_password: bool = False
 

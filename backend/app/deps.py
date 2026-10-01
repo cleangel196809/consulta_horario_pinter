@@ -55,16 +55,14 @@ def dentro_del_alcance(current_user: models.Usuario, facultad=None, programa=Non
         return True
     if current_user.rol == "decano" and not current_user.facultad_alcance:
         return False
-    if current_user.rol == "coordinador" and not (
-        current_user.facultad_alcance or current_user.sede_alcance
-    ):
+    if current_user.rol == "coordinador" and not current_user.programa_alcance:
         return False
     if current_user.facultad_alcance and (
         not facultad or current_user.facultad_alcance.lower() not in facultad.lower()
     ):
         return False
-    if current_user.sede_alcance and (
-        not programa or current_user.sede_alcance.lower() not in programa.lower()
+    if current_user.programa_alcance and (
+        not programa or current_user.programa_alcance.lower() not in programa.lower()
     ):
         return False
     return True

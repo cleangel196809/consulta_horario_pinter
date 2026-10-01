@@ -63,14 +63,16 @@ async function abrirCeremonia(item) {
     [g.estudiante_cedula, g.facultad, g.programa, g.validado ? "Sí" : "No"].forEach((v) => tr.appendChild(celda(v)));
     const accion = celda("");
     if (puedeAsistencia) {
-      const boton = document.createElement("button");
-      boton.className = "secundario";
-      boton.textContent = "Registrar presente";
-      boton.onclick = async () => {
-        await apiFetch("/grados/asistencias", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({graduando_id: g.id, presente: true})});
-        await abrirCeremonia(ceremoniaActual);
-      };
-      accion.appendChild(boton);
+      [["Presente", true], ["Ausente", false]].forEach(([texto, presente]) => {
+        const boton = document.createElement("button");
+        boton.className = "secundario";
+        boton.textContent = texto;
+        boton.onclick = async () => {
+          await apiFetch("/grados/asistencias", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({graduando_id: g.id, presente})});
+          await abrirCeremonia(ceremoniaActual);
+        };
+        accion.appendChild(boton);
+      });
     }
     if (puedeValidar && !g.validado) {
       const validar = document.createElement("button");

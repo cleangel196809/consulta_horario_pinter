@@ -11,7 +11,8 @@ class RbacTests(unittest.TestCase):
         return SimpleNamespace(
             rol=rol,
             facultad_alcance=facultad,
-            sede_alcance=programa,
+            sede_alcance=None,
+            programa_alcance=programa,
         )
 
     def test_role_dependency_rejects_unprivileged_user(self):

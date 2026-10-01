@@ -110,6 +110,7 @@ class Usuario(Base):
     cedula_relacionada = Column(String(30))
     facultad_alcance = Column(String(150))
     sede_alcance = Column(String(100))
+    programa_alcance = Column(String(250))
     activo = Column(Boolean, default=True)
     # Se fuerza a True cuando se crea automáticamente el usuario de un
     # docente/estudiante (contraseña inicial = cédula), para obligarlo a

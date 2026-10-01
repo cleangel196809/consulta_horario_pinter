@@ -38,17 +38,15 @@ def listar_ceremonias(
     if usuario.rol in ("decano", "coordinador"):
         if usuario.rol == "decano" and not usuario.facultad_alcance:
             return []
-        if usuario.rol == "coordinador" and not (
-            usuario.facultad_alcance or usuario.sede_alcance
-        ):
+        if usuario.rol == "coordinador" and not usuario.programa_alcance:
             return []
         if usuario.facultad_alcance:
             query = query.filter(
                 models.CeremoniaGrado.facultad.ilike(f"%{usuario.facultad_alcance}%")
             )
-        if usuario.sede_alcance:
+        if usuario.programa_alcance:
             query = query.filter(
-                models.CeremoniaGrado.programa.ilike(f"%{usuario.sede_alcance}%")
+                models.CeremoniaGrado.programa.ilike(f"%{usuario.programa_alcance}%")
             )
     return query.order_by(models.CeremoniaGrado.fecha.desc()).all()
 
@@ -84,17 +82,15 @@ def listar_graduandos(
     if usuario.rol in ("decano", "coordinador"):
         if usuario.rol == "decano" and not usuario.facultad_alcance:
             return []
-        if usuario.rol == "coordinador" and not (
-            usuario.facultad_alcance or usuario.sede_alcance
-        ):
+        if usuario.rol == "coordinador" and not usuario.programa_alcance:
             return []
         if usuario.facultad_alcance:
             query = query.filter(
                 models.GraduandoCeremonia.facultad.ilike(f"%{usuario.facultad_alcance}%")
             )
-        if usuario.sede_alcance:
+        if usuario.programa_alcance:
             query = query.filter(
-                models.GraduandoCeremonia.programa.ilike(f"%{usuario.sede_alcance}%")
+                models.GraduandoCeremonia.programa.ilike(f"%{usuario.programa_alcance}%")
             )
     return query.order_by(models.GraduandoCeremonia.id).all()
 
