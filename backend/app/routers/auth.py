@@ -25,31 +25,37 @@ _failed_attempts = {}
 _failed_attempts_lock = Lock()
 LOGIN_WINDOW_SECONDS = 300
 LOGIN_MAX_ATTEMPTS = 10
+LOGIN_MAX_CLIENTS = 10000
 
 
 def _login_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _attempts_in_window(key: str):
-    now = monotonic()
-    with _failed_attempts_lock:
-        attempts = [
-            timestamp for timestamp in _failed_attempts.get(key, [])
+def _prune_attempts_locked(now: float):
+    for client, timestamps in list(_failed_attempts.items()):
+        active = [
+            timestamp for timestamp in timestamps
             if now - timestamp < LOGIN_WINDOW_SECONDS
         ]
-        if attempts:
-            _failed_attempts[key] = attempts
+        if active:
+            _failed_attempts[client] = active
         else:
-            _failed_attempts.pop(key, None)
-        return attempts
+            _failed_attempts.pop(client, None)
 
 
-def _record_failed_attempt(key: str) -> int:
-    attempts = _attempts_in_window(key)
+def _reserve_login_attempt(key: str):
+    now = monotonic()
     with _failed_attempts_lock:
-        _failed_attempts[key] = attempts + [monotonic()]
-        return len(_failed_attempts[key])
+        _prune_attempts_locked(now)
+        attempts = _failed_attempts.get(key, [])
+        if len(attempts) >= LOGIN_MAX_ATTEMPTS:
+            return False, len(attempts)
+        if key not in _failed_attempts and len(_failed_attempts) >= LOGIN_MAX_CLIENTS:
+            return False, 0
+        attempts.append(now)
+        _failed_attempts[key] = attempts
+        return True, len(attempts)
 
 
 @router.post("/login", response_model=schemas.TokenResponse)
@@ -59,14 +65,14 @@ def login(
     db: Session = Depends(get_db),
 ):
     key = _login_key(request)
-    if len(_attempts_in_window(key)) >= LOGIN_MAX_ATTEMPTS:
+    allowed, attempt_count = _reserve_login_attempt(key)
+    if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Demasiados intentos. Espera unos minutos antes de volver a intentar.",
         )
     user = db.query(models.Usuario).filter(models.Usuario.username == form_data.username).first()
     if not user or not user.activo or not verify_password(form_data.password, user.password_hash):
-        attempt_count = _record_failed_attempt(key)
         if user and attempt_count == 1:
             registrar(db, "login_fallido", "sesion", user)
             db.commit()

@@ -42,11 +42,13 @@ def listar_ceremonias(
             return []
         if usuario.facultad_alcance:
             query = query.filter(
-                models.CeremoniaGrado.facultad.ilike(f"%{usuario.facultad_alcance}%")
+                func.lower(func.trim(models.CeremoniaGrado.facultad))
+                == usuario.facultad_alcance.strip().lower()
             )
         if usuario.programa_alcance:
             query = query.filter(
-                models.CeremoniaGrado.programa.ilike(f"%{usuario.programa_alcance}%")
+                func.lower(func.trim(models.CeremoniaGrado.programa))
+                == usuario.programa_alcance.strip().lower()
             )
     return query.order_by(models.CeremoniaGrado.fecha.desc()).all()
 
@@ -86,11 +88,13 @@ def listar_graduandos(
             return []
         if usuario.facultad_alcance:
             query = query.filter(
-                models.GraduandoCeremonia.facultad.ilike(f"%{usuario.facultad_alcance}%")
+                func.lower(func.trim(models.GraduandoCeremonia.facultad))
+                == usuario.facultad_alcance.strip().lower()
             )
         if usuario.programa_alcance:
             query = query.filter(
-                models.GraduandoCeremonia.programa.ilike(f"%{usuario.programa_alcance}%")
+                func.lower(func.trim(models.GraduandoCeremonia.programa))
+                == usuario.programa_alcance.strip().lower()
             )
     return query.order_by(models.GraduandoCeremonia.id).all()
 
@@ -112,8 +116,10 @@ def agregar_graduando(
     if usuario.rol == "coordinador":
         inscripcion = db.query(models.Inscripcion).filter(
             models.Inscripcion.estudiante_cedula == datos.estudiante_cedula,
-            func.lower(models.Inscripcion.nombre_facultad) == datos.facultad.lower(),
-            func.lower(models.Inscripcion.nom_plan) == datos.programa.lower(),
+            func.lower(func.trim(models.Inscripcion.nombre_facultad))
+            == datos.facultad.strip().lower(),
+            func.lower(func.trim(models.Inscripcion.nom_plan))
+            == datos.programa.strip().lower(),
         ).first()
         if not inscripcion:
             raise HTTPException(
