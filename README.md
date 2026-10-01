@@ -96,6 +96,10 @@ Disponible para cualquier usuario autenticado (filtrado por alcance si es
 
 ## Puesta en marcha con Docker
 
+La guía paso a paso de staging/producción, pruebas E2E, reversa y controles de
+protección de datos para Colombia está en
+[`docs/DESPLIEGUE_COLOMBIA.md`](docs/DESPLIEGUE_COLOMBIA.md).
+
 1. Copia `.env.example` a `.env` y ajusta las contraseñas:
    ```bash
    cp .env.example .env
