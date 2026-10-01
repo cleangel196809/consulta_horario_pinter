@@ -107,10 +107,23 @@ def agregar_graduando(
     usuario: models.Usuario = Depends(GESTION_ASISTENCIA),
 ):
     _exigir_alcance(usuario, datos.facultad, datos.programa)
-    if not db.get(models.CeremoniaGrado, ceremonia_id):
+    ceremonia = db.get(models.CeremoniaGrado, ceremonia_id)
+    if not ceremonia:
         raise HTTPException(status_code=404, detail="Ceremonia no encontrada.")
+    _exigir_alcance(usuario, ceremonia.facultad, ceremonia.programa)
     if not db.get(models.Estudiante, datos.estudiante_cedula):
         raise HTTPException(status_code=404, detail="El estudiante no existe en SIIHAPI.")
+    if usuario.rol == "coordinador":
+        inscripcion = db.query(models.Inscripcion).filter(
+            models.Inscripcion.estudiante_cedula == datos.estudiante_cedula,
+            func.lower(models.Inscripcion.nombre_facultad) == datos.facultad.lower(),
+            func.lower(models.Inscripcion.nom_plan) == datos.programa.lower(),
+        ).first()
+        if not inscripcion:
+            raise HTTPException(
+                status_code=403,
+                detail="El alcance del graduando no coincide con sus inscripciones en SIIHAPI.",
+            )
     graduando = models.GraduandoCeremonia(
         ceremonia_id=ceremonia_id,
         creado_por_id=usuario.id,
@@ -189,14 +202,20 @@ def reporte(
     graduandos = listar_graduandos(ceremonia_id, db, usuario)
     ids = [item.id for item in graduandos]
     presentes = 0
+    ausentes = 0
     if ids:
         presentes = db.query(models.AsistenciaGrado).filter(
             models.AsistenciaGrado.graduando_id.in_(ids),
             models.AsistenciaGrado.presente.is_(True),
         ).count()
+        ausentes = db.query(models.AsistenciaGrado).filter(
+            models.AsistenciaGrado.graduando_id.in_(ids),
+            models.AsistenciaGrado.presente.is_(False),
+        ).count()
     return {
         "ceremonia_id": ceremonia_id,
         "total_graduandos": len(ids),
         "presentes": presentes,
-        "pendientes": len(ids) - presentes,
+        "ausentes": ausentes,
+        "pendientes": len(ids) - presentes - ausentes,
     }

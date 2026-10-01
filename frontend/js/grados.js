@@ -7,6 +7,7 @@ const rol = getRol();
 const rolesConsulta = ["admin", "administrador", "bienestar_universitario", "decano", "coordinador"];
 const puedeEventos = ["admin", "administrador", "bienestar_universitario"].includes(rol);
 const puedeAsistencia = ["admin", "administrador", "bienestar_universitario", "coordinador"].includes(rol);
+const puedeValidar = ["admin", "administrador", "decano"].includes(rol);
 let ceremoniaActual = null;
 
 if (!rolesConsulta.includes(rol)) {
@@ -53,13 +54,14 @@ async function abrirCeremonia(item) {
   ]);
   document.getElementById("total").textContent = reporte.total_graduandos;
   document.getElementById("presentes").textContent = reporte.presentes;
+  document.getElementById("ausentes").textContent = reporte.ausentes;
   document.getElementById("pendientes").textContent = reporte.pendientes;
   const tbody = document.getElementById("graduandos");
   tbody.replaceChildren();
   graduandos.forEach((g) => {
     const tr = document.createElement("tr");
     [g.estudiante_cedula, g.facultad, g.programa, g.validado ? "Sí" : "No"].forEach((v) => tr.appendChild(celda(v)));
-    const accion = celda(puedeAsistencia ? "" : "Solo consulta");
+    const accion = celda("");
     if (puedeAsistencia) {
       const boton = document.createElement("button");
       boton.className = "secundario";
@@ -70,6 +72,17 @@ async function abrirCeremonia(item) {
       };
       accion.appendChild(boton);
     }
+    if (puedeValidar && !g.validado) {
+      const validar = document.createElement("button");
+      validar.className = "secundario";
+      validar.textContent = "Validar";
+      validar.onclick = async () => {
+        await apiFetch(`/grados/graduandos/${g.id}/validar`, {method: "PATCH"});
+        await abrirCeremonia(ceremoniaActual);
+      };
+      accion.appendChild(validar);
+    }
+    if (!puedeAsistencia && (!puedeValidar || g.validado)) accion.textContent = "Solo consulta";
     tr.appendChild(accion);
     tbody.appendChild(tr);
   });
