@@ -43,8 +43,10 @@ para delitos informáticos; y guías/instrucciones vigentes de la SIC.
 2. Cree y verifique un respaldo:
 
    ```bash
-   pg_dump -Fc "$DATABASE_URL" > "pre_despliegue_$(date +%Y%m%d_%H%M).dump"
-   pg_restore --list pre_despliegue_*.dump >/dev/null
+   BACKUP="pre_despliegue_$(date +%Y%m%d_%H%M).dump"
+   docker compose exec -T db sh -c \
+     'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP"
+   docker compose exec -T db pg_restore --list < "$BACKUP" >/dev/null
    ```
 
 3. En Docker, copie `.env.example` a `.env`, reemplace todos los valores y
@@ -82,8 +84,9 @@ para delitos informáticos; y guías/instrucciones vigentes de la SIC.
    docker compose exec api python -m compileall -q app scripts
    ```
 
-2. Ejecute el E2E con datos exclusivamente sintéticos. Crea, verifica y elimina
-   automáticamente usuarios `E2E_*`, estudiante, inscripción y ceremonia:
+2. Ejecute el E2E con datos exclusivamente sintéticos. Cada ejecución genera un
+   identificador aleatorio y elimina únicamente sus propios usuarios `E2E_*`,
+   estudiante, inscripción y ceremonia:
 
    ```bash
    docker compose exec api python scripts/e2e_smoke.py http://localhost:8000

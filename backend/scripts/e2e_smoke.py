@@ -16,7 +16,8 @@ from app.security import hash_password
 
 BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000").rstrip("/")
 PASSWORD = "E2E-" + secrets.token_urlsafe(24)
-PREFIX = "E2E_"
+RUN_ID = secrets.token_hex(6)
+PREFIX = f"E2E_{RUN_ID}_"
 
 
 def api(path, method="GET", token=None, body=None, form=None, expected=200):

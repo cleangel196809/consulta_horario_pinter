@@ -151,7 +151,9 @@ sobrescribe tablas actuales.
 Antes de desplegar:
 
 ```bash
-pg_dump -Fc "$DATABASE_URL" > respaldo_pre_grados.dump
+docker compose exec -T db sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > respaldo_pre_grados.dump
+docker compose exec -T db pg_restore --list < respaldo_pre_grados.dump >/dev/null
 docker compose up --build
 ```
 
