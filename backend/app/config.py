@@ -8,21 +8,13 @@ class Settings(BaseSettings):
     postgres_host: str = "db"
     postgres_port: int = 5432
 
-    secret_key: str = "change-me"
+    secret_key: str = ""
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 480
 
     admin_username: str = "admin"
-    admin_password: str = "admin123"
-
-    test_username: str = "consulta_prueba"
-    test_password: str = "prueba123"
-
-    # Usuario de prueba adicional con rol "coordinador", limitado a una
-    # facultad, para poder probar el alcance filtrado sin crearlo a mano.
-    coord_username: str = "coord_prueba"
-    coord_password: str = "coord123"
-    coord_facultad_alcance: str = "SALUD"
+    admin_password: str = ""
+    cors_origins: str = ""
 
     # Notificaciones por correo (opcional). Si smtp_host queda vacío, el envío
     # de notificaciones queda deshabilitado y la API lo indica claramente en
@@ -44,6 +36,10 @@ class Settings(BaseSettings):
             f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def cors_origin_list(self):
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     class Config:
         env_file = ".env"

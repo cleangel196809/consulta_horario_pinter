@@ -11,17 +11,32 @@ PostgreSQL.
 - **Frontend:** HTML/CSS/JS simple (sin frameworks, servido como archivos
   estáticos), con diseño **responsive** para celular y el logo institucional
   en todas las pantallas.
-- **Autenticación:** usuario/contraseña con roles `admin`, `consulta` y
-  `coordinador`
+- **Autenticación:** JWT y contraseñas bcrypt con RBAC para horarios y
+  asistencia a grados
 - **Contenedores:** Docker Compose (API + PostgreSQL + Adminer)
 
-## Roles
+## Roles y permisos
 
 | Rol | Consultar horarios/docentes/estudiantes | Alcance de la consulta | Cargar archivos Excel | Gestionar usuarios |
 |---|---|---|---|---|
 | `admin` | Sí | Todo | Sí | Sí |
 | `coordinador` | Sí | Limitado a su **facultad y/o sede** de alcance | No (403) | No (403) |
 | `consulta` | Sí | Todo | No (403) | No (403) |
+
+Para **Asistencia a Grados** se usan los roles institucionales:
+
+| Rol | Usuarios/roles | Ceremonias | Graduandos/asistencia | Validación | Reportes |
+|---|---|---|---|---|---|
+| `administrador` (`admin` heredado) | Gestionar | Gestionar | Gestionar | Sí | Todos |
+| `bienestar_universitario` | No | Gestionar | Gestionar | Consulta | Todos |
+| `decano` | No | Consultar su alcance | Consultar su alcance | Validar su facultad | Su alcance |
+| `coordinador` | No | Consultar su alcance | Gestionar su programa | No | Su alcance |
+
+El servidor aplica estos permisos; ocultar controles en el navegador es solo
+una ayuda de interfaz. Para `decano`, `facultad_alcance` es obligatoria. Para
+`coordinador`, `facultad_alcance`, `sede_alcance` y `programa_alcance`
+representan respectivamente la facultad, sede y programa autorizados; el
+módulo de grados exige `programa_alcance`.
 
 Solo el administrador puede cargar los archivos de **planeación** e
 **inscritos** en cada ciclo, desde el Panel administrador de la aplicación
@@ -81,6 +96,10 @@ Disponible para cualquier usuario autenticado (filtrado por alcance si es
 
 ## Puesta en marcha con Docker
 
+La guía paso a paso de staging/producción, pruebas E2E, reversa y controles de
+protección de datos para Colombia está en
+[`docs/DESPLIEGUE_COLOMBIA.md`](docs/DESPLIEGUE_COLOMBIA.md).
+
 1. Copia `.env.example` a `.env` y ajusta las contraseñas:
    ```bash
    cp .env.example .env
@@ -94,17 +113,69 @@ Disponible para cualquier usuario autenticado (filtrado por alcance si es
    - Documentación interactiva de la API: http://localhost:8000/docs
    - Adminer (administrar la base de datos): http://localhost:8080 (sistema: PostgreSQL, servidor: `db`)
 
-Al iniciar por primera vez, la aplicación crea automáticamente tres usuarios
-de prueba:
+No se crean cuentas de demostración ni contraseñas conocidas. Para crear el
+primer administrador de forma interactiva:
 
-| Usuario | Contraseña | Rol | Notas |
-|---|---|---|---|
-| `admin` | `admin123` | `admin` | Definidos en `.env` (`ADMIN_USERNAME`/`ADMIN_PASSWORD`) |
-| `consulta_prueba` | `prueba123` | `consulta` | Solo lectura, sin restricción de facultad/sede |
-| `coord_prueba` | `coord123` | `coordinador` | Solo lectura, limitado a la facultad `SALUD` (configurable con `COORD_FACULTAD_ALCANCE`) |
+```bash
+docker compose exec api python scripts/create_admin.py
+```
 
-**Cambia las tres contraseñas apenas ingreses**, desde el panel de usuarios
-(los usuarios de prueba pueden desactivarse ahí mismo si no los necesitas).
+Como alternativa automatizada, define temporalmente `ADMIN_USERNAME` y una
+`ADMIN_PASSWORD` de al menos 12 caracteres antes del primer arranque y elimina
+esta última variable después de crear la cuenta.
+
+## Aplicación unificada
+
+- **Horarios / SIIHAPI:** conserva las consultas, cargas y reportes existentes.
+- **Asistencia a Grados:** `/grados.html`, con ceremonias, graduandos vinculados
+  a `estudiantes`, asistencia idempotente, validación y reporte.
+- **SISCA:** `/sisca.html` deja visible el punto de integración. No se hallaron
+  infraestructura, API ni reglas SISCA en este repositorio; faltan contrato de
+  API/formato, catálogo de datos, permisos, ambiente de prueba y responsable
+  funcional. No se inventaron reglas de negocio.
+
+La implementación de grados toma como referencia funcional el repositorio
+público `cleangel196809/asistencia_grados_politecnico` (eventos, participantes,
+asistencia y reportes), refactorizada al FastAPI, PostgreSQL y frontend
+institucional existentes. No se incorporan ZIP ni el stack MongoDB/React
+paralelo del proyecto fuente.
+
+## Migraciones y rollback
+
+Las migraciones SQL aditivas viven en `backend/scripts/migrations/` y se
+registran en `schema_migrations` durante el arranque. La migración
+`001_asistencia_grados.sql` crea `ceremonias_grado`,
+`graduandos_ceremonia`, `asistencias_grado` y `auditoria`; no elimina ni
+sobrescribe tablas actuales.
+
+Antes de desplegar:
+
+```bash
+docker compose exec -T db sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > respaldo_pre_grados.dump
+docker compose exec -T db pg_restore --list < respaldo_pre_grados.dump >/dev/null
+docker compose up --build
+```
+
+Para rollback, restaura el respaldo en una base separada y cambia la conexión.
+No borres las tablas nuevas en producción: conservarlas permite auditoría y
+evita pérdida de asistencia. El código anterior ignora las tablas nuevas.
+
+## Seguridad y tratamiento de datos
+
+- Configura `SECRET_KEY` con al menos 32 caracteres aleatorios y
+  `CORS_ORIGINS` como lista separada por comas si hay clientes en otro origen.
+- Los tokens expiran según `ACCESS_TOKEN_EXPIRE_MINUTES`; nunca registres ni
+  compartas tokens, contraseñas o archivos `.env`.
+- Login, cambios de contraseña, usuarios, ceremonias, graduandos, validaciones
+  y asistencia generan trazabilidad sin almacenar contraseñas ni tokens.
+- El login limita intentos repetidos por cliente en ventanas de cinco minutos;
+  en despliegues con múltiples réplicas usa un limitador compartido en el proxy.
+- Limita acceso a copias y reportes, define tiempos institucionales de
+  retención y atiende solicitudes sobre datos personales según la normativa
+  aplicable. Usa TLS, respaldos cifrados y pruebas periódicas de restauración.
+- Estos controles están alineados con buenas prácticas de la familia
+  ISO/IEC 27000/27001; no implican ni afirman certificación.
 
 ## Cargar los archivos de cada ciclo (solo administrador)
 

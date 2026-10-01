@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     username               VARCHAR(80) UNIQUE NOT NULL,
     password_hash          VARCHAR(255) NOT NULL,
     nombre_completo        VARCHAR(200),
-    rol                    VARCHAR(20) NOT NULL DEFAULT 'consulta' CHECK (rol IN ('admin','consulta','coordinador','docente','consulta_estudiante')),
+    rol                    VARCHAR(32) NOT NULL DEFAULT 'consulta' CHECK (rol IN ('admin','consulta','coordinador','docente','consulta_estudiante')),
     cedula_relacionada      VARCHAR(30),  -- opcional: vincula el usuario a un docente/estudiante
     facultad_alcance        VARCHAR(150), -- solo aplica si rol = 'coordinador'
     sede_alcance            VARCHAR(100), -- solo aplica si rol = 'coordinador'

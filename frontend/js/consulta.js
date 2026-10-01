@@ -2,7 +2,7 @@ exigirSesion();
 
 document.getElementById("nombreUsuario").textContent = getNombreUsuario();
 document.getElementById("badgeRol").textContent = etiquetaRol();
-if (getRol() === "admin") {
+if (esAdministrador()) {
   document.getElementById("tabAdmin").classList.remove("oculto");
 }
 
