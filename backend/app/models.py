@@ -106,7 +106,7 @@ class Usuario(Base):
     username = Column(String(80), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     nombre_completo = Column(String(200))
-    rol = Column(String(20), nullable=False, default="consulta")
+    rol = Column(String(32), nullable=False, default="consulta")
     cedula_relacionada = Column(String(30))
     facultad_alcance = Column(String(150))
     sede_alcance = Column(String(100))

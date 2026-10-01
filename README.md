@@ -163,6 +163,8 @@ evita pérdida de asistencia. El código anterior ignora las tablas nuevas.
   compartas tokens, contraseñas o archivos `.env`.
 - Login, cambios de contraseña, usuarios, ceremonias, graduandos, validaciones
   y asistencia generan trazabilidad sin almacenar contraseñas ni tokens.
+- El login limita intentos repetidos por cliente en ventanas de cinco minutos;
+  en despliegues con múltiples réplicas usa un limitador compartido en el proxy.
 - Limita acceso a copias y reportes, define tiempos institucionales de
   retención y atiende solicitudes sobre datos personales según la normativa
   aplicable. Usa TLS, respaldos cifrados y pruebas periódicas de restauración.

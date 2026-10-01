@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from fastapi import HTTPException
 
 from app.deps import dentro_del_alcance, require_roles
+from app.routers import auth
 
 
 class RbacTests(unittest.TestCase):
@@ -39,6 +40,17 @@ class RbacTests(unittest.TestCase):
     def test_missing_scope_never_grants_global_access(self):
         self.assertFalse(dentro_del_alcance(self.usuario("decano"), "Salud", "Enfermería"))
         self.assertFalse(dentro_del_alcance(self.usuario("coordinador"), "Salud", "Enfermería"))
+
+    def test_failed_login_attempts_are_bounded_per_client(self):
+        auth._failed_attempts.clear()
+        for _ in range(auth.LOGIN_MAX_ATTEMPTS + 5):
+            if len(auth._attempts_in_window("test-client")) < auth.LOGIN_MAX_ATTEMPTS:
+                auth._record_failed_attempt("test-client")
+        self.assertEqual(
+            len(auth._attempts_in_window("test-client")),
+            auth.LOGIN_MAX_ATTEMPTS,
+        )
+        auth._failed_attempts.clear()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from threading import Lock
+from time import monotonic
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -19,17 +21,61 @@ from ..services.auditoria import registrar
 
 router = APIRouter(prefix="/api/auth", tags=["autenticacion"])
 
+_failed_attempts = {}
+_failed_attempts_lock = Lock()
+LOGIN_WINDOW_SECONDS = 300
+LOGIN_MAX_ATTEMPTS = 10
+
+
+def _login_key(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _attempts_in_window(key: str):
+    now = monotonic()
+    with _failed_attempts_lock:
+        attempts = [
+            timestamp for timestamp in _failed_attempts.get(key, [])
+            if now - timestamp < LOGIN_WINDOW_SECONDS
+        ]
+        if attempts:
+            _failed_attempts[key] = attempts
+        else:
+            _failed_attempts.pop(key, None)
+        return attempts
+
+
+def _record_failed_attempt(key: str) -> int:
+    attempts = _attempts_in_window(key)
+    with _failed_attempts_lock:
+        _failed_attempts[key] = attempts + [monotonic()]
+        return len(_failed_attempts[key])
+
 
 @router.post("/login", response_model=schemas.TokenResponse)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    key = _login_key(request)
+    if len(_attempts_in_window(key)) >= LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos. Espera unos minutos antes de volver a intentar.",
+        )
     user = db.query(models.Usuario).filter(models.Usuario.username == form_data.username).first()
     if not user or not user.activo or not verify_password(form_data.password, user.password_hash):
-        registrar(db, "login_fallido", "sesion", user)
-        db.commit()
+        attempt_count = _record_failed_attempt(key)
+        if user and attempt_count == 1:
+            registrar(db, "login_fallido", "sesion", user)
+            db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos.",
         )
+    with _failed_attempts_lock:
+        _failed_attempts.pop(key, None)
     token = create_access_token({"sub": user.username, "rol": user.rol})
     registrar(db, "login_exitoso", "sesion", user)
     db.commit()
