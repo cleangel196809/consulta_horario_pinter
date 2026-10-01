@@ -28,12 +28,46 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 def require_admin(current_user: models.Usuario = Depends(get_current_user)) -> models.Usuario:
-    if current_user.rol != "admin":
+    if current_user.rol not in ("admin", "administrador"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Esta acción solo puede realizarla un administrador.",
         )
     return current_user
+
+
+def require_roles(*roles):
+    allowed = set(roles)
+
+    def dependency(current_user: models.Usuario = Depends(get_current_user)):
+        if current_user.rol not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos para realizar esta acción.",
+            )
+        return current_user
+
+    return dependency
+
+
+def dentro_del_alcance(current_user: models.Usuario, facultad=None, programa=None) -> bool:
+    if current_user.rol in ("admin", "administrador", "bienestar_universitario"):
+        return True
+    if current_user.rol == "decano" and not current_user.facultad_alcance:
+        return False
+    if current_user.rol == "coordinador" and not (
+        current_user.facultad_alcance or current_user.sede_alcance
+    ):
+        return False
+    if current_user.facultad_alcance and (
+        not facultad or current_user.facultad_alcance.lower() not in facultad.lower()
+    ):
+        return False
+    if current_user.sede_alcance and (
+        not programa or current_user.sede_alcance.lower() not in programa.lower()
+    ):
+        return False
+    return True
 
 
 def aplicar_alcance_coordinador(query, current_user: models.Usuario, columna_facultad, columna_sede):

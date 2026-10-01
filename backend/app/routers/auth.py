@@ -15,6 +15,7 @@ from ..security import (
 )
 from ..deps import get_current_user
 from ..services.notificaciones import enviar_correo_reset_password
+from ..services.auditoria import registrar
 
 router = APIRouter(prefix="/api/auth", tags=["autenticacion"])
 
@@ -23,11 +24,15 @@ router = APIRouter(prefix="/api/auth", tags=["autenticacion"])
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.Usuario).filter(models.Usuario.username == form_data.username).first()
     if not user or not user.activo or not verify_password(form_data.password, user.password_hash):
+        registrar(db, "login_fallido", "sesion", user)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos.",
         )
     token = create_access_token({"sub": user.username, "rol": user.rol})
+    registrar(db, "login_exitoso", "sesion", user)
+    db.commit()
     return schemas.TokenResponse(
         access_token=token,
         rol=user.rol,
@@ -53,12 +58,13 @@ def cambiar_password(
     primer ingreso (cuando `debe_cambiar_password=True`, ver login)."""
     if not verify_password(datos.password_actual, current_user.password_hash):
         raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
-    if not datos.password_nueva or len(datos.password_nueva) < 4:
+    if not datos.password_nueva or len(datos.password_nueva) < 12:
         raise HTTPException(
-            status_code=400, detail="La nueva contraseña debe tener al menos 4 caracteres."
+            status_code=400, detail="La nueva contraseña debe tener al menos 12 caracteres."
         )
     current_user.password_hash = hash_password(datos.password_nueva)
     current_user.debe_cambiar_password = False
+    registrar(db, "cambiar_password", "usuario", current_user, current_user.id)
     db.add(current_user)
     db.commit()
     return {"detail": "Contraseña actualizada correctamente."}
@@ -112,9 +118,9 @@ def restablecer_password(
     del enlace enviado por correo y define la nueva contraseña."""
     if not datos.token:
         raise HTTPException(status_code=400, detail="Falta el token de recuperación.")
-    if not datos.password_nueva or len(datos.password_nueva) < 4:
+    if not datos.password_nueva or len(datos.password_nueva) < 12:
         raise HTTPException(
-            status_code=400, detail="La nueva contraseña debe tener al menos 4 caracteres."
+            status_code=400, detail="La nueva contraseña debe tener al menos 12 caracteres."
         )
 
     user = db.query(models.Usuario).filter(models.Usuario.reset_token == datos.token).first()
@@ -135,6 +141,7 @@ def restablecer_password(
     user.debe_cambiar_password = False
     user.reset_token = None
     user.reset_token_expira = None
+    registrar(db, "restablecer_password", "usuario", user, user.id)
     db.add(user)
     db.commit()
     return {"detail": "Contraseña actualizada correctamente. Ya puedes iniciar sesión."}

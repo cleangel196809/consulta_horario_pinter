@@ -10,7 +10,8 @@ from .database import Base, engine, SessionLocal
 from . import models
 from .config import settings
 from .security import hash_password
-from .routers import auth, horarios, docentes, estudiantes, admin_upload, admin_crud, usuarios, exportar, reportes
+from .migrations import run_migrations
+from .routers import auth, horarios, docentes, estudiantes, admin_upload, admin_crud, usuarios, exportar, reportes, grados
 
 
 def migrar_columnas_nuevas():
@@ -33,63 +34,36 @@ def migrar_columnas_nuevas():
 
 
 def crear_admin_inicial():
+    if not settings.admin_password:
+        return
+    if len(settings.admin_password) < 12:
+        raise RuntimeError("ADMIN_PASSWORD debe tener al menos 12 caracteres.")
     db = SessionLocal()
     try:
-        existe = db.query(models.Usuario).filter(models.Usuario.rol == "admin").first()
+        existe = db.query(models.Usuario).filter(
+            models.Usuario.rol.in_(("admin", "administrador"))
+        ).first()
         if not existe:
             admin = models.Usuario(
                 username=settings.admin_username,
                 password_hash=hash_password(settings.admin_password),
                 nombre_completo="Administrador",
-                rol="admin",
+                rol="administrador",
             )
             db.add(admin)
             db.commit()
             print(f"[init] Usuario administrador '{settings.admin_username}' creado.")
 
-        # Usuario de solo-consulta de demostración, para probar el rol sin
-        # privilegios de administrador apenas se levanta la aplicación.
-        existe_prueba = db.query(models.Usuario).filter(
-            models.Usuario.username == settings.test_username
-        ).first()
-        if not existe_prueba:
-            prueba = models.Usuario(
-                username=settings.test_username,
-                password_hash=hash_password(settings.test_password),
-                nombre_completo="Usuario de prueba (consulta)",
-                rol="consulta",
-            )
-            db.add(prueba)
-            db.commit()
-            print(f"[init] Usuario de prueba '{settings.test_username}' (rol consulta) creado.")
-
-        # Usuario de prueba con rol "coordinador", limitado a una facultad,
-        # para poder probar el alcance filtrado sin tener que crearlo a mano
-        # desde el panel admin.
-        existe_coord = db.query(models.Usuario).filter(
-            models.Usuario.username == settings.coord_username
-        ).first()
-        if not existe_coord:
-            coord = models.Usuario(
-                username=settings.coord_username,
-                password_hash=hash_password(settings.coord_password),
-                nombre_completo="Usuario de prueba (coordinador)",
-                rol="coordinador",
-                facultad_alcance=settings.coord_facultad_alcance,
-            )
-            db.add(coord)
-            db.commit()
-            print(
-                f"[init] Usuario de prueba '{settings.coord_username}' "
-                f"(rol coordinador, facultad '{settings.coord_facultad_alcance}') creado."
-            )
     finally:
         db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if len(settings.secret_key) < 32:
+        raise RuntimeError("SECRET_KEY debe configurarse con al menos 32 caracteres aleatorios.")
     Base.metadata.create_all(bind=engine)
+    run_migrations()
     migrar_columnas_nuevas()
     crear_admin_inicial()
     yield
@@ -105,8 +79,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=bool(settings.cors_origin_list),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -120,6 +94,17 @@ app.include_router(admin_crud.router)
 app.include_router(usuarios.router)
 app.include_router(exportar.router)
 app.include_router(reportes.router)
+app.include_router(grados.router)
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
 
 
 @app.get("/api/salud", tags=["salud"])

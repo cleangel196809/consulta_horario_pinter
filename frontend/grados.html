@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asistencia a Grados · PINTER</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="marca"><img src="/img/logo-pinter.png" alt="Politécnico Internacional" class="logo-topbar"><h1>Asistencia a Grados</h1></div>
+    <div class="usuario-info"><span id="nombreUsuario"></span><span class="badge-rol" id="badgeRol"></span><button class="secundario" onclick="cerrarSesion()">Salir</button></div>
+  </div>
+  <nav class="tabs">
+    <button onclick="location.href='/consulta.html'">Horarios / SIIHAPI</button>
+    <button onclick="location.href='/docentes.html'">Docentes</button>
+    <button onclick="location.href='/estudiantes.html'">Estudiantes</button>
+    <button onclick="location.href='/dashboard.html'">Reportes</button>
+    <button id="tabAdmin" class="oculto" onclick="location.href='/admin.html'">Panel administrador</button>
+  </nav>
+  <main id="contenido">
+    <div class="card oculto" id="crearCeremonia">
+      <h2>Nueva ceremonia</h2>
+      <form id="formCeremonia" class="filtros-grid">
+        <div><label for="ceremoniaNombre">Nombre</label><input id="ceremoniaNombre" required maxlength="200"></div>
+        <div><label for="ceremoniaFecha">Fecha</label><input id="ceremoniaFecha" type="date" required></div>
+        <div><label for="ceremoniaLugar">Lugar</label><input id="ceremoniaLugar" required maxlength="200"></div>
+        <div><label for="ceremoniaFacultad">Facultad</label><input id="ceremoniaFacultad" maxlength="150"></div>
+        <div><label for="ceremoniaPrograma">Programa</label><input id="ceremoniaPrograma" maxlength="250"></div>
+        <button class="primario" type="submit">Crear ceremonia</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Ceremonias</h2>
+      <div class="tabla-scroll"><table><thead><tr><th>Fecha</th><th>Nombre</th><th>Lugar</th><th>Alcance</th><th></th></tr></thead><tbody id="ceremonias"></tbody></table></div>
+    </div>
+    <section id="detalle" class="oculto">
+      <div class="card"><h2 id="tituloCeremonia">Ceremonia</h2><div class="indicadores"><div class="indicador"><strong id="total">0</strong>Graduandos</div><div class="indicador"><strong id="presentes">0</strong>Presentes</div><div class="indicador"><strong id="pendientes">0</strong>Pendientes</div></div></div>
+      <div class="card oculto" id="agregarGraduando">
+        <h2>Agregar graduando desde SIIHAPI</h2>
+        <form id="formGraduando" class="filtros-grid">
+          <div><label for="graduandoCedula">Documento</label><input id="graduandoCedula" required maxlength="30"></div>
+          <div><label for="graduandoFacultad">Facultad</label><input id="graduandoFacultad" required maxlength="150"></div>
+          <div><label for="graduandoPrograma">Programa</label><input id="graduandoPrograma" required maxlength="250"></div>
+          <button class="primario" type="submit">Agregar</button>
+        </form>
+      </div>
+      <div class="card"><h2>Graduandos y asistencia</h2><div class="tabla-scroll"><table><thead><tr><th>Documento</th><th>Facultad</th><th>Programa</th><th>Validado</th><th>Asistencia</th></tr></thead><tbody id="graduandos"></tbody></table></div></div>
+    </section>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/grados.js"></script>
+</body>
+</html>

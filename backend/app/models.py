@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, BigInteger, String, Boolean, DateTime, Integer, Time, Text, ForeignKey, UniqueConstraint
+    Column, BigInteger, String, Boolean, DateTime, Integer, Time, Text, ForeignKey, UniqueConstraint, Date
 )
 from sqlalchemy.sql import func
 
@@ -138,4 +138,69 @@ class CargaArchivo(Base):
     duplicados_omitidos = Column(Integer, default=0)
     estado = Column(String(30), default="completado")
     detalle_error = Column(Text)
+    creado_en = Column(DateTime, server_default=func.now())
+
+
+class CeremoniaGrado(Base):
+    __tablename__ = "ceremonias_grado"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    nombre = Column(String(200), nullable=False)
+    fecha = Column(Date, nullable=False)
+    lugar = Column(String(200), nullable=False)
+    facultad = Column(String(150))
+    programa = Column(String(250))
+    estado = Column(String(30), nullable=False, default="planificada")
+    creado_por_id = Column(BigInteger, ForeignKey("usuarios.id"), nullable=False)
+    creado_en = Column(DateTime, server_default=func.now())
+    actualizado_en = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class GraduandoCeremonia(Base):
+    __tablename__ = "graduandos_ceremonia"
+    __table_args__ = (
+        UniqueConstraint("ceremonia_id", "estudiante_cedula", name="uq_graduando_ceremonia"),
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    ceremonia_id = Column(
+        BigInteger, ForeignKey("ceremonias_grado.id", ondelete="CASCADE"), nullable=False
+    )
+    estudiante_cedula = Column(
+        String(30), ForeignKey("estudiantes.cedula", ondelete="RESTRICT"), nullable=False
+    )
+    facultad = Column(String(150), nullable=False)
+    programa = Column(String(250), nullable=False)
+    validado = Column(Boolean, nullable=False, default=False)
+    creado_por_id = Column(BigInteger, ForeignKey("usuarios.id"), nullable=False)
+    creado_en = Column(DateTime, server_default=func.now())
+
+
+class AsistenciaGrado(Base):
+    __tablename__ = "asistencias_grado"
+    __table_args__ = (
+        UniqueConstraint("graduando_id", name="uq_asistencia_graduando"),
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    graduando_id = Column(
+        BigInteger, ForeignKey("graduandos_ceremonia.id", ondelete="CASCADE"), nullable=False
+    )
+    presente = Column(Boolean, nullable=False, default=True)
+    observacion = Column(String(500))
+    registrado_por_id = Column(BigInteger, ForeignKey("usuarios.id"), nullable=False)
+    registrado_en = Column(DateTime, server_default=func.now())
+    actualizado_en = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Auditoria(Base):
+    __tablename__ = "auditoria"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    usuario_id = Column(BigInteger, ForeignKey("usuarios.id"))
+    username = Column(String(80))
+    accion = Column(String(80), nullable=False)
+    recurso = Column(String(80), nullable=False)
+    recurso_id = Column(String(80))
+    detalle = Column(Text)
     creado_en = Column(DateTime, server_default=func.now())

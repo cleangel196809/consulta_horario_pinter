@@ -37,10 +37,10 @@
           <input type="password" id="passwordActualCambio" required>
           <br><br>
           <label for="passwordNueva">Nueva contraseña</label>
-          <input type="password" id="passwordNueva" minlength="4" required>
+          <input type="password" id="passwordNueva" minlength="12" required>
           <br><br>
           <label for="passwordNuevaConfirmar">Confirmar nueva contraseña</label>
-          <input type="password" id="passwordNuevaConfirmar" minlength="4" required>
+          <input type="password" id="passwordNuevaConfirmar" minlength="12" required>
           <br><br>
           <button type="submit" class="primario">Cambiar contraseña y continuar</button>
         </form>
@@ -102,8 +102,8 @@
       const passwordNueva = document.getElementById("passwordNueva").value;
       const passwordConfirmar = document.getElementById("passwordNuevaConfirmar").value;
 
-      if (passwordNueva.length < 4) {
-        msg.textContent = "La nueva contraseña debe tener al menos 4 caracteres.";
+      if (passwordNueva.length < 12) {
+        msg.textContent = "La nueva contraseña debe tener al menos 12 caracteres.";
         msg.style.display = "block";
         return;
       }

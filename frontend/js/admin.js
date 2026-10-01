@@ -2,7 +2,7 @@ exigirSesion();
 document.getElementById("nombreUsuario").textContent = getNombreUsuario();
 document.getElementById("badgeRol").textContent = etiquetaRol();
 
-if (getRol() !== "admin") {
+if (!esAdministrador()) {
   document.getElementById("contenidoAdmin").innerHTML =
     '<div class="card"><h2>Acceso restringido</h2><p>Esta sección solo está disponible para usuarios con rol de administrador.</p></div>';
 } else {
@@ -36,8 +36,9 @@ function iniciarNuevoCiclo() {
 }
 
 function toggleCamposCoordinador() {
-  const esCoordinador = document.getElementById("nuevoRol").value === "coordinador";
-  document.getElementById("campoFacultadAlcance").classList.toggle("oculto", !esCoordinador);
+  const rol = document.getElementById("nuevoRol").value;
+  const esCoordinador = rol === "coordinador";
+  document.getElementById("campoFacultadAlcance").classList.toggle("oculto", !["coordinador", "decano"].includes(rol));
   document.getElementById("campoSedeAlcance").classList.toggle("oculto", !esCoordinador);
 }
 
@@ -259,6 +260,10 @@ async function crearUsuario() {
   }
   if (rol === "coordinador" && !facultad_alcance && !sede_alcance) {
     alert("Un coordinador necesita al menos una facultad o sede de alcance");
+    return;
+  }
+  if (rol === "decano" && !facultad_alcance) {
+    alert("Un decano necesita una facultad de alcance");
     return;
   }
 
