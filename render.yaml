@@ -40,14 +40,6 @@ services:
       - key: ADMIN_USERNAME
         value: admin
       - key: ADMIN_PASSWORD
-        value: CambiaEstaClave2026!
-      - key: TEST_USERNAME
-        value: consulta_prueba
-      - key: TEST_PASSWORD
-        value: prueba123
-      - key: COORD_USERNAME
-        value: coord_prueba
-      - key: COORD_PASSWORD
-        value: coord123
-      - key: COORD_FACULTAD_ALCANCE
-        value: SALUD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

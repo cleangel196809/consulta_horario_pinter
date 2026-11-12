@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from threading import Lock
+from time import monotonic
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -15,19 +17,74 @@ from ..security import (
 )
 from ..deps import get_current_user
 from ..services.notificaciones import enviar_correo_reset_password
+from ..services.auditoria import registrar
 
 router = APIRouter(prefix="/api/auth", tags=["autenticacion"])
 
+_failed_attempts = {}
+_failed_attempts_lock = Lock()
+LOGIN_WINDOW_SECONDS = 300
+LOGIN_MAX_ATTEMPTS = 10
+LOGIN_MAX_CLIENTS = 10000
+
+
+def _login_key(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _prune_attempts_locked(now: float):
+    for client, timestamps in list(_failed_attempts.items()):
+        active = [
+            timestamp for timestamp in timestamps
+            if now - timestamp < LOGIN_WINDOW_SECONDS
+        ]
+        if active:
+            _failed_attempts[client] = active
+        else:
+            _failed_attempts.pop(client, None)
+
+
+def _reserve_login_attempt(key: str):
+    now = monotonic()
+    with _failed_attempts_lock:
+        _prune_attempts_locked(now)
+        attempts = _failed_attempts.get(key, [])
+        if len(attempts) >= LOGIN_MAX_ATTEMPTS:
+            return False, len(attempts)
+        if key not in _failed_attempts and len(_failed_attempts) >= LOGIN_MAX_CLIENTS:
+            return False, 0
+        attempts.append(now)
+        _failed_attempts[key] = attempts
+        return True, len(attempts)
+
 
 @router.post("/login", response_model=schemas.TokenResponse)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    key = _login_key(request)
+    allowed, attempt_count = _reserve_login_attempt(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos. Espera unos minutos antes de volver a intentar.",
+        )
     user = db.query(models.Usuario).filter(models.Usuario.username == form_data.username).first()
     if not user or not user.activo or not verify_password(form_data.password, user.password_hash):
+        if user and attempt_count == 1:
+            registrar(db, "login_fallido", "sesion", user)
+            db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos.",
         )
+    with _failed_attempts_lock:
+        _failed_attempts.pop(key, None)
     token = create_access_token({"sub": user.username, "rol": user.rol})
+    registrar(db, "login_exitoso", "sesion", user)
+    db.commit()
     return schemas.TokenResponse(
         access_token=token,
         rol=user.rol,
@@ -53,12 +110,13 @@ def cambiar_password(
     primer ingreso (cuando `debe_cambiar_password=True`, ver login)."""
     if not verify_password(datos.password_actual, current_user.password_hash):
         raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
-    if not datos.password_nueva or len(datos.password_nueva) < 4:
+    if not datos.password_nueva or len(datos.password_nueva) < 12:
         raise HTTPException(
-            status_code=400, detail="La nueva contraseña debe tener al menos 4 caracteres."
+            status_code=400, detail="La nueva contraseña debe tener al menos 12 caracteres."
         )
     current_user.password_hash = hash_password(datos.password_nueva)
     current_user.debe_cambiar_password = False
+    registrar(db, "cambiar_password", "usuario", current_user, current_user.id)
     db.add(current_user)
     db.commit()
     return {"detail": "Contraseña actualizada correctamente."}
@@ -112,9 +170,9 @@ def restablecer_password(
     del enlace enviado por correo y define la nueva contraseña."""
     if not datos.token:
         raise HTTPException(status_code=400, detail="Falta el token de recuperación.")
-    if not datos.password_nueva or len(datos.password_nueva) < 4:
+    if not datos.password_nueva or len(datos.password_nueva) < 12:
         raise HTTPException(
-            status_code=400, detail="La nueva contraseña debe tener al menos 4 caracteres."
+            status_code=400, detail="La nueva contraseña debe tener al menos 12 caracteres."
         )
 
     user = db.query(models.Usuario).filter(models.Usuario.reset_token == datos.token).first()
@@ -135,6 +193,7 @@ def restablecer_password(
     user.debe_cambiar_password = False
     user.reset_token = None
     user.reset_token_expira = None
+    registrar(db, "restablecer_password", "usuario", user, user.id)
     db.add(user)
     db.commit()
     return {"detail": "Contraseña actualizada correctamente. Ya puedes iniciar sesión."}

@@ -1,7 +1,7 @@
 exigirSesion();
 document.getElementById("nombreUsuario").textContent = getNombreUsuario();
 document.getElementById("badgeRol").textContent = etiquetaRol();
-if (getRol() === "admin") document.getElementById("tabAdmin").classList.remove("oculto");
+if (esAdministrador()) document.getElementById("tabAdmin").classList.remove("oculto");
 
 let charts = {};
 let ultimoDashboardData = null;

@@ -14,12 +14,38 @@ function getRol() {
 // "consulta", pero se muestran con su propia etiqueta para mayor claridad.
 function etiquetaRol() {
   const r = getRol();
-  if (r === "admin") return "Administrador";
+  if (r === "admin" || r === "administrador") return "Administrador";
+  if (r === "bienestar_universitario") return "Bienestar universitario";
+  if (r === "decano") return "Decano";
   if (r === "coordinador") return "Coordinador";
   if (r === "docente") return "Docente";
   if (r === "consulta_estudiante") return "Consulta estudiante";
   return "Consulta";
 }
+
+function esAdministrador() {
+  return ["admin", "administrador"].includes(getRol());
+}
+
+function agregarNavegacionModulos() {
+  const nav = document.querySelector("nav.tabs");
+  if (!nav || nav.querySelector("[data-modulo='grados']")) return;
+  const actual = window.location.pathname;
+  const modulos = [
+    ["grados", "/grados.html", "Asistencia a Grados"],
+    ["sisca", "/sisca.html", "SISCA"],
+  ];
+  modulos.forEach(([modulo, ruta, etiqueta]) => {
+    const boton = document.createElement("button");
+    boton.dataset.modulo = modulo;
+    boton.textContent = etiqueta;
+    boton.onclick = () => { window.location.href = ruta; };
+    if (actual === ruta) boton.classList.add("activo");
+    nav.appendChild(boton);
+  });
+}
+
+agregarNavegacionModulos();
 
 function getNombreUsuario() {
   return localStorage.getItem("ph_nombre") || localStorage.getItem("ph_username") || "";

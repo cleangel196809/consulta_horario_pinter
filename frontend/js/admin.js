@@ -2,7 +2,7 @@ exigirSesion();
 document.getElementById("nombreUsuario").textContent = getNombreUsuario();
 document.getElementById("badgeRol").textContent = etiquetaRol();
 
-if (getRol() !== "admin") {
+if (!esAdministrador()) {
   document.getElementById("contenidoAdmin").innerHTML =
     '<div class="card"><h2>Acceso restringido</h2><p>Esta sección solo está disponible para usuarios con rol de administrador.</p></div>';
 } else {
@@ -36,9 +36,11 @@ function iniciarNuevoCiclo() {
 }
 
 function toggleCamposCoordinador() {
-  const esCoordinador = document.getElementById("nuevoRol").value === "coordinador";
-  document.getElementById("campoFacultadAlcance").classList.toggle("oculto", !esCoordinador);
+  const rol = document.getElementById("nuevoRol").value;
+  const esCoordinador = rol === "coordinador";
+  document.getElementById("campoFacultadAlcance").classList.toggle("oculto", !["coordinador", "decano"].includes(rol));
   document.getElementById("campoSedeAlcance").classList.toggle("oculto", !esCoordinador);
+  document.getElementById("campoProgramaAlcance").classList.toggle("oculto", !esCoordinador);
 }
 
 async function subirArchivo(tipo, idPeriodo, idArchivo, idMsg, endpoint) {
@@ -234,7 +236,7 @@ async function cargarUsuarios() {
     const tbody = document.getElementById("tbodyUsuarios");
     tbody.innerHTML = "";
     data.forEach((u) => {
-      const alcance = [u.facultad_alcance, u.sede_alcance].filter(Boolean).join(" / ") || "—";
+      const alcance = [u.facultad_alcance, u.sede_alcance, u.programa_alcance].filter(Boolean).join(" / ") || "—";
       const tr = document.createElement("tr");
       tr.innerHTML = `<td>${u.username}</td><td>${u.nombre_completo || ""}</td><td>${u.rol}</td><td>${alcance}</td><td>${u.activo ? "Sí" : "No"}</td>
         <td><button class="secundario" onclick="cambiarEstadoUsuario(${u.id}, ${!u.activo})">${u.activo ? "Desactivar" : "Activar"}</button></td>`;
@@ -252,13 +254,18 @@ async function crearUsuario() {
   const rol = document.getElementById("nuevoRol").value;
   const facultad_alcance = document.getElementById("nuevaFacultadAlcance").value.trim();
   const sede_alcance = document.getElementById("nuevaSedeAlcance").value.trim();
+  const programa_alcance = document.getElementById("nuevoProgramaAlcance").value.trim();
 
   if (!username || !password) {
     alert("Usuario y contraseña son obligatorios");
     return;
   }
-  if (rol === "coordinador" && !facultad_alcance && !sede_alcance) {
-    alert("Un coordinador necesita al menos una facultad o sede de alcance");
+  if (rol === "coordinador" && !facultad_alcance && !sede_alcance && !programa_alcance) {
+    alert("Un coordinador necesita al menos una facultad, sede o programa de alcance");
+    return;
+  }
+  if (rol === "decano" && !facultad_alcance) {
+    alert("Un decano necesita una facultad de alcance");
     return;
   }
 
@@ -266,7 +273,7 @@ async function crearUsuario() {
     await apiFetch("/usuarios", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, nombre_completo, rol, facultad_alcance, sede_alcance }),
+      body: JSON.stringify({ username, password, nombre_completo, rol, facultad_alcance, sede_alcance, programa_alcance }),
     });
     document.getElementById("nuevoUsername").value = "";
     document.getElementById("nuevoPassword").value = "";

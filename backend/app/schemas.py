@@ -1,4 +1,4 @@
-from datetime import time, datetime
+from datetime import date, time, datetime
 from typing import Optional
 from pydantic import BaseModel
 
@@ -43,6 +43,7 @@ class UsuarioCreate(BaseModel):
     cedula_relacionada: Optional[str] = None
     facultad_alcance: Optional[str] = None
     sede_alcance: Optional[str] = None
+    programa_alcance: Optional[str] = None
 
 
 class UsuarioOut(BaseModel):
@@ -52,6 +53,7 @@ class UsuarioOut(BaseModel):
     rol: str
     facultad_alcance: Optional[str] = None
     sede_alcance: Optional[str] = None
+    programa_alcance: Optional[str] = None
     activo: bool
     debe_cambiar_password: bool = False
 
@@ -249,6 +251,53 @@ class CargaArchivoOut(BaseModel):
     duplicados_omitidos: Optional[int] = 0
     estado: str
     creado_en: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ---------- Asistencia a grados ----------
+class CeremoniaCreate(BaseModel):
+    nombre: str
+    fecha: date
+    lugar: str
+    facultad: Optional[str] = None
+    programa: Optional[str] = None
+
+
+class CeremoniaOut(CeremoniaCreate):
+    id: int
+    estado: str
+
+    class Config:
+        from_attributes = True
+
+
+class GraduandoCreate(BaseModel):
+    estudiante_cedula: str
+    facultad: str
+    programa: str
+
+
+class GraduandoOut(GraduandoCreate):
+    id: int
+    ceremonia_id: int
+    validado: bool
+
+    class Config:
+        from_attributes = True
+
+
+class AsistenciaCreate(BaseModel):
+    graduando_id: int
+    presente: bool = True
+    observacion: Optional[str] = None
+
+
+class AsistenciaOut(AsistenciaCreate):
+    id: int
+    registrado_por_id: int
+    registrado_en: Optional[datetime] = None
 
     class Config:
         from_attributes = True
